@@ -24,7 +24,7 @@ pub trait VectorCommitmentScheme<F: Field> {
     fn verify_commitment(ck: &Self::CommitmentKey, com: &Self::Commitment) -> bool;
 
     /* Open a commitment at position i, using the state output by function commit */
-    fn open(st: &Self::State, i: usize) -> Option<Self::Opening>;
+    fn open(st: &Self::State, i: u32) -> Option<Self::Opening>;
     
     /* Aggregate some openings at the same position i         */
     /* Assuming that openings[j] is an opening for commitment */
@@ -33,8 +33,8 @@ pub trait VectorCommitmentScheme<F: Field> {
         ck: &Self::CommitmentKey,
         i: u32,
         mis: &Vec<F>,
-        coms: &Vec<Self::Commitment>,
-        openings: &Vec<Self::Opening>,
+        coms: &Vec<&Self::Commitment>,
+        openings: &Vec<&Self::Opening>,
     ) -> Option<Self::Opening>;
 
     /* Verify an (aggregated) opening    */
@@ -42,9 +42,9 @@ pub trait VectorCommitmentScheme<F: Field> {
     /* coms[j] to mis[j] at position i   */
     fn verify(
         ck: &Self::CommitmentKey,
-        i: usize,
+        i: u32,
         mis: &Vec<F>,
-        coms: &Vec<Self::Commitment>,
+        coms: &Vec<&Self::Commitment>,
         opening: &Self::Opening,
     ) -> bool;
 }
