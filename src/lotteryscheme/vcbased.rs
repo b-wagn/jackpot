@@ -56,7 +56,7 @@ fn get_challenge<F: Field, VC: VectorCommitmentScheme<F>>(
 }
 
 // returns a random vector of length n of F where the elements are
-// sampled from 0,..
+// sampled from 0,..k-1
 fn get_random_field_vec<R: rand::Rng, F: Field>(rng: &mut R, k: u32, n: usize) -> Vec<F> {
     (0..n)
         .map(|_| {
@@ -73,14 +73,14 @@ impl<F: Field, VC: VectorCommitmentScheme<F>> LotteryScheme for VCLotteryScheme<
     type Ticket = Ticket<F, VC>;
     type LotterySeed = LotterySeed;
 
-    fn setup<R: rand::Rng>(rng: &mut R, num_lotteries: usize, k: u32) -> Self::Parameters {
+    fn setup<R: rand::Rng>(rng: &mut R, num_lotteries: usize, k: u32) -> Option<Self::Parameters> {
         // The parameters are just a fresh commitment key.
         let ck = VC::setup(rng, num_lotteries);
-        Self::Parameters {
+        ck.map(|ck| Self::Parameters {
             ck,
             num_lotteries,
             k,
-        }
+        })
     }
 
     fn gen<R: rand::Rng>(
@@ -113,7 +113,7 @@ impl<F: Field, VC: VectorCommitmentScheme<F>> LotteryScheme for VCLotteryScheme<
         }
         // if we win, we can get a winning ticket
         // by opening our commitment
-        let op_tau = VC::open(&sk.state, i);
+        let op_tau = VC::open(&par.ck, &sk.state, i);
         op_tau.map(|tau| Ticket { opening: tau })
     }
 

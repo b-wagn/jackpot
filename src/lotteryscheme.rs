@@ -11,7 +11,7 @@ pub trait LotteryScheme {
 
     /* Set up system parameters                     */
     /* for T lotteries with winning probability 1/k */
-    fn setup<R: Rng>(rng: &mut R, num_lotteries: usize, k : u32) -> Self::Parameters;
+    fn setup<R: Rng>(rng: &mut R, num_lotteries: usize, k : u32) -> Option<Self::Parameters>;
 
     /* Generate keys for a user */
     fn gen<R: Rng>(rng: &mut R, par: &Self::Parameters) -> (Self::PublicKey, Self::SecretKey);
