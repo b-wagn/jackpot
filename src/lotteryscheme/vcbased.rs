@@ -97,6 +97,10 @@ impl<F: Field, VC: VectorCommitmentScheme<F>> LotteryScheme for VCLotteryScheme<
         (pk, sk)
     }
 
+    fn verify_key(par: &Self::Parameters, pk: &Self::PublicKey) -> bool {
+        VC::verify_commitment(&par.ck, &pk.com)
+    }
+
     fn participate(
         par: &Self::Parameters,
         i: u32,
@@ -168,14 +172,9 @@ impl<F: Field, VC: VectorCommitmentScheme<F>> LotteryScheme for VCLotteryScheme<
             coms.push(&pks[j].com);
         }
 
-        // verify all commitments
-        for j in 0..l {
-            if !VC::verify_commitment(&par.ck, &pks[j].com) {
-                return false;
-            }
-        }
-
         // verify the aggregate opening
         VC::verify(&par.ck, i, &xs, &coms, &ticket.opening)
     }
 }
+
+// TODO: Tests?

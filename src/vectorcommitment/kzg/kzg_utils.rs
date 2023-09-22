@@ -193,16 +193,15 @@ pub fn witness_evals_outside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
 ) -> Vec<E::ScalarField> {
     // witn_evals[i] = (evals[i] - fz) / (domain[i]-z)
     // we use batch inversion for the denominators
-    let mut nums = Vec::new();
     let mut denoms = Vec::new();
     for i in 0..domain.size() {
-        nums.push(evals[i] - fz);
         denoms.push(domain.element(i) - z);
     }
     batch_inversion(&mut denoms);
     let mut witn_evals = Vec::new();
     for i in 0..domain.size() {
-        witn_evals.push(nums[i] * denoms[i]);
+        let num = evals[i] - fz;
+        witn_evals.push(num * denoms[i]);
     }
     witn_evals
 }
@@ -216,13 +215,17 @@ pub fn evaluate_outside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
 ) -> E::ScalarField {
     // formula taken from https://dankradfeist.de/ethereum/2021/06/18/pcs-multiproofs.html
     // f(z) = {z^d-1}/d * sum_i (f_i * {w^i}/{z-w^i}), where d is the size of the domain
+    let mut denoms = Vec::new();
+    for i in 0..domain.size() {
+        denoms.push(z - domain.element(i));
+    }
+    batch_inversion(&mut denoms);
+
     let nom = domain.vanishing_polynomial().evaluate(&z);
     let factor = nom / domain.size_as_field_element();
     let mut sum = E::ScalarField::zero();
     for i in 0..domain.size() {
-        let omegai = domain.element(i);
-        let denom = z - omegai;
-        let term = omegai / denom;
+        let term = domain.element(i) * denoms[i];
         sum += evals[i] * term;
     }
     factor * sum

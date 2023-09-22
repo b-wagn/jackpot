@@ -130,6 +130,7 @@ impl<E: Pairing, P: DenseUVPolynomial<E::ScalarField>, D: EvaluationDomain<E::Sc
         // evals[i] = m[i]   if m[i] is defined,
         // evals[i] = random if not
         let mut evals = Vec::new();
+        evals.reserve(ck.domain.size());
         for i in 0..m.len() {
             evals.push(m[i]);
         }
