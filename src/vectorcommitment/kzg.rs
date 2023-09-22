@@ -23,6 +23,7 @@ pub use self::kzg_types::VcKZG;
 
 use self::kzg_utils::get_chi;
 use self::kzg_utils::get_z0;
+use self::kzg_utils::inv_diffs;
 use self::kzg_utils::plain_kzg_verify;
 use self::kzg_utils::witness_evals_inside;
 
@@ -129,8 +130,7 @@ impl<E: Pairing, P: DenseUVPolynomial<E::ScalarField>, D: EvaluationDomain<E::Sc
         // over our evaluation domain, namely
         // evals[i] = m[i]   if m[i] is defined,
         // evals[i] = random if not
-        let mut evals = Vec::new();
-        evals.reserve(ck.domain.size());
+        let mut evals = Vec::with_capacity(ck.domain.size());
         for i in 0..m.len() {
             evals.push(m[i]);
         }
@@ -161,11 +161,13 @@ impl<E: Pairing, P: DenseUVPolynomial<E::ScalarField>, D: EvaluationDomain<E::Sc
         // Now we can assume that z0 is not in the domain
         // compute evaluation y0 = f(z0) and the respective
         // witness polynomial (f-y0) / (X-z0) in evaluation form
-        let y0 = evaluate_outside::<E, D>(&ck.domain, &evals, z0);
-        let witn_evals = witness_evals_outside::<E, D>(&ck.domain, &evals, z0, y0);
+        let inv_diffs = inv_diffs::<E, D>(&ck.domain, z0);
+        let y0 = evaluate_outside::<E, D>(&ck.domain, &evals, z0, &inv_diffs);
+        let witn_evals = witness_evals_outside::<E, D>(&ck.domain, &evals, y0, &inv_diffs);
         // do the same for the maskiing term
-        let hat_y0 = evaluate_outside::<E, D>(&ck.domain, &hat_evals, z0);
-        let hat_witn_evals = witness_evals_outside::<E, D>(&ck.domain, &hat_evals, z0, hat_y0);
+        let hat_y0 = evaluate_outside::<E, D>(&ck.domain, &hat_evals, z0, &inv_diffs);
+        let hat_witn_evals =
+            witness_evals_outside::<E, D>(&ck.domain, &hat_evals, hat_y0, &inv_diffs);
         // opening v is just a KZG commitment to the witness polys
         let v = plain_kzg_com(ck, &witn_evals, &hat_witn_evals);
         let tau0 = Opening { hat_y: hat_y0, v };
@@ -349,11 +351,11 @@ mod tests {
 
     #[test]
     fn kzg_vc_test_opening() {
-        assert!(_vc_test_opening::<F,VC>());
+        assert!(_vc_test_opening::<F, VC>());
     }
 
     #[test]
     fn kzg_vc_test_agg_opening() {
-        assert!(_vc_test_agg_opening::<F,VC>());
+        assert!(_vc_test_agg_opening::<F, VC>());
     }
 }
