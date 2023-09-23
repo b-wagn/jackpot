@@ -83,16 +83,17 @@ impl<E: Pairing, P: DenseUVPolynomial<E::ScalarField>, D: EvaluationDomain<E::Sc
             hat_u.push(curr_h.into_affine());
         }
 
-        // raise g1 to the powers of alpha --> u
-        // raise h to the powers of alpha  --> hat_u
+        // compute exponentiated lagrange coefficients
         // Note: If a standard powers-of-tau setup is used,
         // this can be publicly computed from u and hat_u
-        let lags = domain.evaluate_all_lagrange_coefficients(alpha);
-        let u_lag = lags.iter().map(|li| u[0].mul(li).into_affine()).collect();
-        let hat_u_lag = lags
-            .iter()
-            .map(|li| hat_u[0].mul(li).into_affine())
-            .collect();
+        let lf = domain.evaluate_all_lagrange_coefficients(alpha);
+        let mut lagranges = Vec::with_capacity(2*deg);
+        for i in 0..=deg {
+            lagranges.push(u[0].mul(lf[i]).into_affine());
+        }
+        for i in 0..=deg {
+            lagranges.push(hat_u[0].mul(lf[i]).into_affine());
+        }
 
         //compute r = g2^{alpha}
         let r = g2.mul(alpha).into_affine();
@@ -111,9 +112,8 @@ impl<E: Pairing, P: DenseUVPolynomial<E::ScalarField>, D: EvaluationDomain<E::Sc
             message_length,
             domain,
             u,
-            u_lag,
             hat_u,
-            hat_u_lag,
+            lagranges,
             g2,
             g2_prepared,
             r,
@@ -126,26 +126,30 @@ impl<E: Pairing, P: DenseUVPolynomial<E::ScalarField>, D: EvaluationDomain<E::Sc
         ck: &Self::CommitmentKey,
         m: &Vec<E::ScalarField>,
     ) -> (Self::Commitment, Self::State) {
-        // evals will store evaluations of our polynomial
+        // evals[0..domain.size] will store evaluations of our polynomial
         // over our evaluation domain, namely
         // evals[i] = m[i]   if m[i] is defined,
         // evals[i] = random if not
-        let mut evals = Vec::with_capacity(ck.domain.size());
+        // evals[domain.size()..2*domain.size()] will store evaluations of
+        // the random masking polynomial used for hiding
+        // we keep both evaluations in the same vector so that
+        // we can easily do a single MSM later
+        let dsize = ck.domain.size();
+        let mut evals = Vec::with_capacity(2*dsize);
         for i in 0..m.len() {
             evals.push(m[i]);
         }
-        for _ in m.len()..ck.domain.size() {
+        for _ in m.len()..2*ck.domain.size() {
             evals.push(E::ScalarField::rand(rng));
         }
 
         // hat_evals will store the masking polynomial
         // we need for hiding in evaluation form
-        let hat_evals = (0..ck.domain.size())
-            .map(|_| E::ScalarField::rand(rng))
-            .collect();
+        // this is just a slice of evals
+        let hat_evals = &evals[dsize..2*dsize];
 
-        // from these evaluations, we compute a standard KZG commitment
-        let com_kzg = plain_kzg_com(ck, &evals, &hat_evals);
+        // from our evaluations, we compute a standard KZG commitment
+        let com_kzg = plain_kzg_com(ck, &evals);
 
         // TODO: Precompute all openings using FK technique
 
@@ -163,16 +167,16 @@ impl<E: Pairing, P: DenseUVPolynomial<E::ScalarField>, D: EvaluationDomain<E::Sc
         // witness polynomial (f-y0) / (X-z0) in evaluation form
         let inv_diffs = inv_diffs::<E, D>(&ck.domain, z0);
         let y0 = evaluate_outside::<E, D>(&ck.domain, &evals, z0, &inv_diffs);
-        let witn_evals = witness_evals_outside::<E, D>(&ck.domain, &evals, y0, &inv_diffs);
-        // do the same for the maskiing term
+        let mut witn_evals = Vec::with_capacity(2*dsize);
+        witness_evals_outside::<E, D>(&ck.domain, &evals, y0, &inv_diffs, &mut witn_evals);
+        // do the same for the masking term
         let hat_y0 = evaluate_outside::<E, D>(&ck.domain, &hat_evals, z0, &inv_diffs);
-        let hat_witn_evals =
-            witness_evals_outside::<E, D>(&ck.domain, &hat_evals, hat_y0, &inv_diffs);
+        witness_evals_outside::<E, D>(&ck.domain, &hat_evals, hat_y0, &inv_diffs, &mut witn_evals);
         // opening v is just a KZG commitment to the witness polys
-        let v = plain_kzg_com(ck, &witn_evals, &hat_witn_evals);
+        let v = plain_kzg_com(ck, &witn_evals);
         let tau0 = Opening { hat_y: hat_y0, v };
         // return composed commitment and state
-        let state = State { evals, hat_evals };
+        let state = State { evals };
         let com = Commitment { com_kzg, y0, tau0 };
         (com, state)
     }
@@ -190,10 +194,12 @@ impl<E: Pairing, P: DenseUVPolynomial<E::ScalarField>, D: EvaluationDomain<E::Sc
         }
         // TODO: Consider precomputing this using the FK technique
         // compute a KZG opening in evaluation form
-        let witn_evals = witness_evals_inside::<E, D>(&ck.domain, &st.evals, i as usize);
-        let hat_witn_evals = witness_evals_inside::<E, D>(&ck.domain, &st.hat_evals, i as usize);
-        let v = plain_kzg_com(&ck, &witn_evals, &hat_witn_evals);
-        let hat_y = st.hat_evals[i as usize];
+        let deg = ck.domain.size();
+        let mut witn_evals = Vec::new();
+        witness_evals_inside::<E, D>(&ck.domain, &st.evals, i as usize, &mut witn_evals);
+        witness_evals_inside::<E, D>(&ck.domain, &st.evals[deg..2*deg], i as usize, &mut witn_evals);
+        let v = plain_kzg_com(&ck, &witn_evals);
+        let hat_y = st.evals[i as usize +ck.domain.size()];
         Some(Opening { hat_y, v })
     }
 
@@ -299,7 +305,7 @@ mod tests {
 
         // TODO: The following code should be cleaner
 
-        // verify that u_lag consistent with u. To do so:
+        // verify that lagranges consistent with u. To do so:
         // Compute g1^f(alpha) once with u (lhs)
         // and once with u_lag (rhs)
         let f: DensePolynomial<F> = DenseUVPolynomial::rand(15, &mut rng);
@@ -309,18 +315,16 @@ mod tests {
             .enumerate()
             .map(|(i, c)| ck.u[i].mul(c))
             .collect();
-        let lhs = cpow.iter().fold(
-            <Bls12<ark_bls12_381::Config> as Pairing>::G1::zero(),
-            |sum, v| sum + v,
-        );
+
+        let lhs : <Bls12<ark_bls12_381::Config> as Pairing>::G1 = cpow.iter().sum();
         let evals = f.evaluate_over_domain(ck.domain);
         let mut rhs = <Bls12<ark_bls12_381::Config> as Pairing>::G1::zero();
         for i in 0..ck.domain.size() {
-            rhs += ck.u_lag[i].mul(evals[i]);
+            rhs += ck.lagranges[i].mul(evals[i]);
         }
         assert_eq!(lhs.into_affine(), rhs.into_affine());
 
-        // verify that hat_u_lag consistent with hat_u in the same way
+        // verify that lagranges consistent with hat_u in the same way
         let f: DensePolynomial<F> = DenseUVPolynomial::rand(15, &mut rng);
         let cpow: Vec<<Bls12<ark_bls12_381::Config> as Pairing>::G1> = f
             .coeffs
@@ -328,14 +332,11 @@ mod tests {
             .enumerate()
             .map(|(i, c)| ck.hat_u[i].mul(c))
             .collect();
-        let lhs = cpow.iter().fold(
-            <Bls12<ark_bls12_381::Config> as Pairing>::G1::zero(),
-            |sum, v| sum + v,
-        );
+        let lhs : <Bls12<ark_bls12_381::Config> as Pairing>::G1 = cpow.iter().sum();
         let evals = f.evaluate_over_domain(ck.domain);
         let mut rhs = <Bls12<ark_bls12_381::Config> as Pairing>::G1::zero();
         for i in 0..ck.domain.size() {
-            rhs += ck.hat_u_lag[i].mul(evals[i]);
+            rhs += ck.lagranges[i+ck.domain.size()].mul(evals[i]);
         }
         assert_eq!(lhs.into_affine(), rhs.into_affine());
     }

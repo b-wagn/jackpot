@@ -32,22 +32,23 @@ pub struct CommitmentKey<E: Pairing, D: EvaluationDomain<E::ScalarField>> {
     /// Note: u[0] = g1
     pub u: Vec<E::G1Affine>,
 
-    /// lagrange version of u
-    /// u_lag[i] = g1^{l_i(alpha)}, where
-    /// l_i is the ith lagrange polynomial
-    /// i should range from 0 to deg
-    pub u_lag: Vec<E::G1Affine>,
+    // /// lagrange version of u
+    // /// u_lag[i] = g1^{l_i(alpha)}, where
+    // /// l_i is the ith lagrange polynomial
+    // /// i should range from 0 to deg
+    // pub u_lag: Vec<E::G1Affine>,
 
     /// same as u, but for the hiding part
     /// hat_u[i] = h1^{alpha^i}
     /// i should range from 0 to deg
     pub hat_u: Vec<E::G1Affine>,
 
-    /// lagrange version of u
-    /// hat_u_lag[i] = h1^{l_i(alpha)}, where
-    /// l_i is the ith lagrange polynomial
-    /// i should range from 0 to deg
-    pub hat_u_lag: Vec<E::G1Affine>,
+    /// lagrange version of u and hat_u
+    /// Let l_i be the ith lagrange poly. Then:
+    /// lag[i] = g1^{l_i(alpha)}
+    /// lag[deg+i] = h1^{l_i(alpha)}
+    /// for i in 0..deg
+    pub lagranges: Vec<E::G1Affine>,
 
     /// generator of G2
     pub g2: E::G2Affine,
@@ -62,7 +63,7 @@ pub struct CommitmentKey<E: Pairing, D: EvaluationDomain<E::ScalarField>> {
     /// all prepared for pairing
     /// namely, d[i] = g2^{alpha - zi},
     /// where zi is the ith evaluation point
-    /// i should range from 0 to ell-1
+    /// i should range from 0 to deg
     pub d: Vec<E::G2Prepared>,
 }
 
@@ -88,6 +89,8 @@ pub struct Commitment<E: Pairing> {
 }
 
 pub struct State<E: Pairing> {
+    /// stores both the evaluations of the polynomial
+    /// and the evaluations of the masking polynomial
+    /// polynomial: 0..deg, masking: deg..2*deg
     pub evals: Vec<E::ScalarField>,
-    pub hat_evals: Vec<E::ScalarField>,
 }

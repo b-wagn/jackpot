@@ -99,12 +99,10 @@ pub fn plain_kzg_verify<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
 /// Compute a KZG commitment for the given vector of evaluations
 pub fn plain_kzg_com<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     ck: &CommitmentKey<E, D>,
-    evals: &Vec<E::ScalarField>,
-    hat_evals: &Vec<E::ScalarField>,
+    evals: &[E::ScalarField],
 ) -> E::G1Affine {
-    let plain = <E::G1 as VariableBaseMSM>::msm(&ck.u_lag, evals).unwrap();
-    let mask = <E::G1 as VariableBaseMSM>::msm(&ck.hat_u_lag, hat_evals).unwrap();
-    (plain + mask).into_affine()
+    let c = <E::G1 as VariableBaseMSM>::msm(&ck.lagranges, evals).unwrap();
+    c.into_affine()
 }
 
 /// Check if the given element is in the evaluation domain
@@ -128,42 +126,46 @@ pub fn find_in_domain<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
 }
 
 /// Compute the evaluation form of the KZG witness polynomial
-/// (f - f(z)) / (X - w_i) when f is given in evaluation form
+/// psi = (f - f(w_i)) / (X - w_i) when f is given in evaluation form
 /// Note: This assumes that w_i is the ith element of the domain
+/// The evaluation form is appended to the given vector witn_evals
+/// that is, the jth pushed element is psi(w_j)
 pub fn witness_evals_inside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     domain: &D,
-    evals: &Vec<E::ScalarField>,
+    evals: &[E::ScalarField],
     i: usize,
-) -> Vec<E::ScalarField> {
+    witn_evals : &mut Vec::<E::ScalarField>,
+) {
+    // need that later for index calculation
+    let oldsize = witn_evals.len();
+
     // let x_j denote the elements of the evaluation domain
     // then for each j != i, we can compute the evaluation
     // as in witness_evals_outside,
     // namely, as (evals[j] - evals[i]) / (x_j-x_i)
-    // for that, we first compute all denominators
-    // using batch inversion
+    // for that, we first compute all
+    // denominators we need using batch inversion
     let fxi = evals[i];
     let xi = domain.element(i);
     let mut nums = Vec::new();
     let mut denoms = Vec::new();
     for j in 0..domain.size() {
+        // f(x_j) - f(x_i)
         nums.push(evals[j] - fxi);
-        if j != i {
-            // push x_j-x_i
-            denoms.push(domain.element(j) - xi);
-        } else {
-            // push a sentinel
-            denoms.push(E::ScalarField::one());
-        }
+        // x_j-x_i
+        denoms.push(domain.element(j) - xi);
     }
+    // now, denoms[i] = 0. So let's set it to 1
+    // to make batch inversion possible
+    denoms[i] = E::ScalarField::one();
     batch_inversion(&mut denoms);
-    let mut witn_evals = Vec::new();
     for j in 0..domain.size() {
         witn_evals.push(nums[j] * denoms[j]);
     }
     // now witn_evals is correctly computed for all j!=i.
-    // whats left is to compute witn_evals[i] properly
+    // whats left is to compute the ith evaluation properly
     // https://dankradfeist.de/ethereum/2021/06/18/pcs-multiproofs.html
-    witn_evals[i] = {
+    witn_evals[oldsize+i] = {
         let mut sum = E::ScalarField::zero();
         for j in 0..domain.size() {
             if j == i {
@@ -178,8 +180,6 @@ pub fn witness_evals_inside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
         }
         sum
     };
-
-    witn_evals
 }
 
 /// computes the vector of all 1/(domain[i]-z)
@@ -198,21 +198,22 @@ pub fn inv_diffs<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
 }
 
 /// Compute the evaluation form of the KZG witness polynomial
-/// (f - f(z)) / (X - z) when f is given in evaluation form
-/// Assumes inv_diffs[i] = 1/(domain[i]-z)
+/// Evaluation form will be pushed to the vector witn_evals
+/// ith pushed element is (f(domain[i]) - f(z)) / (domain[i] - z)
+/// where i ranges from 0 to domain.size()
+/// Assumes inv_diffs[i] = 1/(domain[i]-z) for i in 0..domain.size()
 pub fn witness_evals_outside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     domain: &D,
-    evals: &Vec<E::ScalarField>,
+    evals: &[E::ScalarField],
     fz: E::ScalarField,
-    inv_diffs : &Vec<E::ScalarField>
-) -> Vec<E::ScalarField> {
+    inv_diffs : &[E::ScalarField],
+    witn_evals : &mut Vec::<E::ScalarField>,
+) {
     // witn_evals[i] = (evals[i] - fz) / (domain[i]-z)
-    let mut witn_evals = Vec::new();
     for i in 0..domain.size() {
         let num = evals[i] - fz;
         witn_evals.push(num * inv_diffs[i]);
     }
-    witn_evals
 }
 
 /// Evaluate the polynomial given by the evaluations evals over domain at z
@@ -220,9 +221,9 @@ pub fn witness_evals_outside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
 /// Note: This assumes that z is not in the evaluation domain
 pub fn evaluate_outside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     domain: &D,
-    evals: &Vec<E::ScalarField>,
+    evals: &[E::ScalarField],
     z: E::ScalarField,
-    inv_diffs: &Vec<E::ScalarField>,
+    inv_diffs: &[E::ScalarField],
 ) -> E::ScalarField {
     // formula taken from https://dankradfeist.de/ethereum/2021/06/18/pcs-multiproofs.html
     // f(z) = {z^d-1}/d * sum_i (f_i * {w^i}/{z-w^i}), where d is the size of the domain
@@ -302,7 +303,8 @@ mod tests {
                 let witness_poly = &fshift / &div;
                 let witn_evals_expected = domain.fft(&witness_poly.coeffs);
                 // compare with what we get from our function
-                let witn_evals = witness_evals_inside::<Bls12_381, D>(&domain, &evals, i);
+                let mut witn_evals = Vec::new();
+                witness_evals_inside::<Bls12_381, D>(&domain, &evals, i, &mut witn_evals);
                 for i in 0..domain.size() {
                     assert_eq!(witn_evals[i], witn_evals_expected[i]);
                 }
@@ -346,7 +348,7 @@ mod tests {
             }
             let f = DensePolynomial::from_coefficients_vec(coeffs);
             // evaluate the polynomial on the domain
-            let evals = domain.fft(&f.coeffs);
+            let evals : Vec<F> = domain.fft(&f.coeffs);
             // do a few tests with this polynomial
             for _ in 0..runs {
                 // sample a random point outside the domain
@@ -359,7 +361,8 @@ mod tests {
                 let witness_poly = &fshift / &div;
                 let witn_evals_expected = domain.fft(&witness_poly.coeffs);
                 // compare with what we get from our function
-                let witn_evals = witness_evals_outside::<Bls12_381, D>(&domain, &evals, fz, &inv_diffs);
+                let mut witn_evals = Vec::new();
+                witness_evals_outside::<Bls12_381, D>(&domain, &evals, fz, &inv_diffs, &mut witn_evals);
                 for i in 0..domain.size() {
                     assert_eq!(witn_evals[i], witn_evals_expected[i]);
                 }
