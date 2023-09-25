@@ -1,6 +1,7 @@
 # Non-Interactive Aggregatable Lotteries
 
-Prototypical Rust implementation of non-interactive aggregatable lotteries in Rust.
+Implementation of non-interactive aggregatable lotteries in Rust.
+Disclaimer: This implementation is prototypical and not for production use.
 
 ## Background
 TODO
