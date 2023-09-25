@@ -19,10 +19,9 @@ use ni_agg_lottery::vectorcommitment::kzg::VcKZG;
 use ni_agg_lottery::vectorcommitment::VectorCommitmentScheme;
 
 // some types we need during our benchmarks
-type UniPoly381 = DensePolynomial<<Bls12_381 as Pairing>::ScalarField>;
 type F = <Bls12_381 as Pairing>::ScalarField;
 type D = Radix2EvaluationDomain<F>;
-type VC = VcKZG<Bls12_381, UniPoly381, D>;
+type VC = VcKZG<Bls12_381, D>;
 type VCL = VCLotteryScheme<F, VC>;
 
 

@@ -1,14 +1,23 @@
 use ark_ec::pairing::Pairing;
 use ark_ec::AffineRepr;
 use ark_ec::CurveGroup;
-use ark_poly::DenseUVPolynomial;
 use ark_poly::EvaluationDomain;
 use ark_std::UniformRand;
 use ark_std::Zero;
 use std::ops::Mul;
 
+
+/// this module contains all types associated with
+/// the KZG-based sim-extractable vector commitment
 pub mod kzg_types;
+
+/// this module contains several functions
+/// we use often for our vector commitment
 mod kzg_utils;
+
+/// this module allows to compute all
+/// openings in a fast amortized way
+mod kzg_fk_open;
 
 use crate::vectorcommitment::kzg::kzg_utils::evaluate_outside;
 use crate::vectorcommitment::kzg::kzg_utils::find_in_domain;
@@ -33,8 +42,8 @@ use super::VectorCommitmentScheme;
     - message length + 2 should probably be power of two, to make use of roots of unity
 */
 
-impl<E: Pairing, P: DenseUVPolynomial<E::ScalarField>, D: EvaluationDomain<E::ScalarField>>
-    VectorCommitmentScheme<E::ScalarField> for VcKZG<E, P, D>
+impl<E: Pairing, D: EvaluationDomain<E::ScalarField>>
+    VectorCommitmentScheme<E::ScalarField> for VcKZG<E, D>
 {
     type CommitmentKey = CommitmentKey<E, D>;
     type Commitment = Commitment<E>;
@@ -307,10 +316,9 @@ mod tests {
         _vc_test_setup
     };
 
-    type UniPoly381 = DensePolynomial<<Bls12_381 as Pairing>::ScalarField>;
     type F = <Bls12_381 as Pairing>::ScalarField;
     type D = Radix2EvaluationDomain<F>;
-    type VC = VcKZG<Bls12_381, UniPoly381, D>;
+    type VC = VcKZG<Bls12_381, D>;
 
     /// test that serialization of commitment key works
     #[test]

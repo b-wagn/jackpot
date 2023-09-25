@@ -17,7 +17,7 @@ use super::CommitmentKey;
 use super::Opening;
 
 
-/// Helper functions for the Simulation Extractable KZG Vector commitment
+// This module contains helper functions for the Simulation Extractable KZG Vector commitment
 
 /// Computes the challenge for a commitment
 #[inline]

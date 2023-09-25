@@ -1,19 +1,17 @@
 use ark_ec::pairing::Pairing;
-use ark_poly::DenseUVPolynomial;
 use ark_poly::EvaluationDomain;
 use ark_serialize::CanonicalDeserialize;
 use ark_serialize::CanonicalSerialize;
 use std::marker::PhantomData;
 
-/// Types for the Simulation Extractable KZG Vector commitment
+// This module contains types for the Simulation Extractable KZG Vector commitment
 
+/// Simulation-Extractable vector commitment based on KZG
 pub struct VcKZG<
     E: Pairing,
-    P: DenseUVPolynomial<E::ScalarField>,
     D: EvaluationDomain<E::ScalarField>,
 > {
     _e: PhantomData<E>,
-    _p: PhantomData<P>,
     _d: PhantomData<D>,
 }
 
