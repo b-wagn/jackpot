@@ -1,12 +1,11 @@
 use ark_ec::pairing::Pairing;
 use ark_poly::DenseUVPolynomial;
 use ark_poly::EvaluationDomain;
+use ark_serialize::CanonicalDeserialize;
 use ark_serialize::CanonicalSerialize;
 use std::marker::PhantomData;
 
-
 /// Types for the Simulation Extractable KZG Vector commitment
-
 
 pub struct VcKZG<
     E: Pairing,
@@ -18,6 +17,7 @@ pub struct VcKZG<
     _d: PhantomData<D>,
 }
 
+#[derive(CanonicalSerialize, CanonicalDeserialize, PartialEq, Eq, Debug)]
 pub struct CommitmentKey<E: Pairing, D: EvaluationDomain<E::ScalarField>> {
     /// length of messages to which we commit,
     /// This is called ell in the paper
@@ -37,7 +37,6 @@ pub struct CommitmentKey<E: Pairing, D: EvaluationDomain<E::ScalarField>> {
     // /// l_i is the ith lagrange polynomial
     // /// i should range from 0 to deg
     // pub u_lag: Vec<E::G1Affine>,
-
     /// same as u, but for the hiding part
     /// hat_u[i] = h1^{alpha^i}
     /// i should range from 0 to deg
@@ -93,4 +92,8 @@ pub struct State<E: Pairing> {
     /// and the evaluations of the masking polynomial
     /// polynomial: 0..deg, masking: deg..2*deg
     pub evals: Vec<E::ScalarField>,
+
+    /// optionally stores precomputed KZG openings
+    /// Note: this is only the group element part
+    pub precomputed_v: Option<Vec<E::G1Affine>>,
 }

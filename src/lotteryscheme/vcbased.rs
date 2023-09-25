@@ -32,6 +32,7 @@ pub struct Ticket<F: Field, VC: VectorCommitmentScheme<F>> {
 }
 pub type LotterySeed = [u8; 32];
 
+#[inline]
 fn get_challenge<F: Field, VC: VectorCommitmentScheme<F>>(
     _k: u32,
     pk: &PublicKey<F, VC>,
@@ -57,6 +58,7 @@ fn get_challenge<F: Field, VC: VectorCommitmentScheme<F>>(
 
 // returns a random vector of length n of F where the elements are
 // sampled from 0,..k-1
+#[inline]
 fn get_random_field_vec<R: rand::Rng, F: Field>(rng: &mut R, k: u32, n: usize) -> Vec<F> {
     (0..n)
         .map(|_| {

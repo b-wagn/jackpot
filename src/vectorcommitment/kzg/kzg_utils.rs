@@ -16,9 +16,11 @@ use super::Commitment;
 use super::CommitmentKey;
 use super::Opening;
 
+
 /// Helper functions for the Simulation Extractable KZG Vector commitment
 
 /// Computes the challenge for a commitment
+#[inline]
 pub fn get_z0<E: Pairing>(com_kzg: &E::G1Affine) -> E::ScalarField {
     // z0 = Hash(com_kzg)
     let mut com_ser = Vec::new();
@@ -41,6 +43,7 @@ pub fn get_z0<E: Pairing>(com_kzg: &E::G1Affine) -> E::ScalarField {
 
 /// Computes the aggregation coefficient
 /// for a bunch of commitments and expected values
+#[inline]
 pub fn get_chi<E: Pairing>(
     i: u32,
     mis: &Vec<E::ScalarField>,
@@ -79,6 +82,7 @@ pub fn get_chi<E: Pairing>(
 }
 
 /// Standard KZG verification. Verifies that f(z) = y
+#[inline]
 pub fn plain_kzg_verify<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     ck: &CommitmentKey<E, D>,
     com_kzg: &E::G1Affine,
@@ -97,6 +101,7 @@ pub fn plain_kzg_verify<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
 }
 
 /// Compute a KZG commitment for the given vector of evaluations
+#[inline]
 pub fn plain_kzg_com<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     ck: &CommitmentKey<E, D>,
     evals: &[E::ScalarField],
@@ -107,6 +112,7 @@ pub fn plain_kzg_com<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
 
 /// Check if the given element is in the evaluation domain
 /// and if so, return the index of it. Otherwise, return None
+#[inline]
 pub fn find_in_domain<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     domain: &D,
     z: E::ScalarField,
@@ -130,6 +136,7 @@ pub fn find_in_domain<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
 /// Note: This assumes that w_i is the ith element of the domain
 /// The evaluation form is appended to the given vector witn_evals
 /// that is, the jth pushed element is psi(w_j)
+#[inline]
 pub fn witness_evals_inside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     domain: &D,
     evals: &[E::ScalarField],
@@ -184,6 +191,7 @@ pub fn witness_evals_inside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
 
 /// computes the vector of all 1/(domain[i]-z)
 /// Assumes that z is not in domain
+#[inline]
 pub fn inv_diffs<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     domain: &D,
     z: E::ScalarField,
@@ -202,6 +210,7 @@ pub fn inv_diffs<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
 /// ith pushed element is (f(domain[i]) - f(z)) / (domain[i] - z)
 /// where i ranges from 0 to domain.size()
 /// Assumes inv_diffs[i] = 1/(domain[i]-z) for i in 0..domain.size()
+#[inline]
 pub fn witness_evals_outside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     domain: &D,
     evals: &[E::ScalarField],
@@ -219,6 +228,7 @@ pub fn witness_evals_outside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
 /// Evaluate the polynomial given by the evaluations evals over domain at z
 /// Assumes that inv_diffs[i] = 1/(domain[i]-z)
 /// Note: This assumes that z is not in the evaluation domain
+#[inline]
 pub fn evaluate_outside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     domain: &D,
     evals: &[E::ScalarField],
@@ -248,9 +258,7 @@ mod tests {
     use ark_std::One;
     use ark_std::UniformRand;
 
-    use crate::vectorcommitment::kzg::kzg_utils::find_in_domain;
-
-    use super::{evaluate_outside, get_z0, inv_diffs, witness_evals_inside, witness_evals_outside};
+    use super::{find_in_domain, evaluate_outside, get_z0, inv_diffs, witness_evals_inside, witness_evals_outside};
 
     type F = <Bls12_381 as Pairing>::ScalarField;
     type D = Radix2EvaluationDomain<F>;
