@@ -6,7 +6,6 @@ use ark_std::UniformRand;
 use ark_std::Zero;
 use std::ops::Mul;
 
-
 /// this module contains all types associated with
 /// the KZG-based sim-extractable vector commitment
 pub mod kzg_types;
@@ -17,12 +16,9 @@ mod kzg_utils;
 
 /// this module allows to compute all
 /// openings in a fast amortized way
-mod kzg_fk_open;
+pub mod kzg_fk_open;
+pub use kzg_fk_open::precompute_openings;
 
-use crate::vectorcommitment::kzg::kzg_utils::evaluate_outside;
-use crate::vectorcommitment::kzg::kzg_utils::find_in_domain;
-use crate::vectorcommitment::kzg::kzg_utils::plain_kzg_com;
-use crate::vectorcommitment::kzg::kzg_utils::witness_evals_outside;
 
 pub use self::kzg_types::Commitment;
 pub use self::kzg_types::CommitmentKey;
@@ -30,10 +26,16 @@ pub use self::kzg_types::Opening;
 pub use self::kzg_types::State;
 pub use self::kzg_types::VcKZG;
 
+
+use self::kzg_utils::evaluate_outside;
+use self::kzg_utils::find_in_domain;
+use self::kzg_utils::plain_kzg_com;
+use self::kzg_utils::witness_evals_outside;
 use self::kzg_utils::get_chi;
 use self::kzg_utils::get_z0;
 use self::kzg_utils::inv_diffs;
 use self::kzg_utils::plain_kzg_verify;
+use self::kzg_utils::plain_kzg_verify_inside;
 use self::kzg_utils::witness_evals_inside;
 
 use super::VectorCommitmentScheme;
@@ -42,8 +44,8 @@ use super::VectorCommitmentScheme;
     - message length + 2 should probably be power of two, to make use of roots of unity
 */
 
-impl<E: Pairing, D: EvaluationDomain<E::ScalarField>>
-    VectorCommitmentScheme<E::ScalarField> for VcKZG<E, D>
+impl<E: Pairing, D: EvaluationDomain<E::ScalarField>> VectorCommitmentScheme<E::ScalarField>
+    for VcKZG<E, D>
 {
     type CommitmentKey = CommitmentKey<E, D>;
     type Commitment = Commitment<E>;
@@ -183,7 +185,10 @@ impl<E: Pairing, D: EvaluationDomain<E::ScalarField>>
         let v = plain_kzg_com(ck, &witn_evals);
         let tau0 = Opening { hat_y: hat_y0, v };
         // return composed commitment and state
-        let state = State { evals, precomputed_v: None };
+        let state = State {
+            evals,
+            precomputed_v: None,
+        };
         let com = Commitment { com_kzg, y0, tau0 };
         (com, state)
     }
@@ -254,8 +259,6 @@ impl<E: Pairing, D: EvaluationDomain<E::ScalarField>>
         Some(Opening { hat_y, v })
     }
 
-    // TODO: Use precomputed d values from ck instead of
-    // plain_kzg_ver
     fn verify(
         ck: &Self::CommitmentKey,
         i: u32,
@@ -288,8 +291,7 @@ impl<E: Pairing, D: EvaluationDomain<E::ScalarField>>
         }
         // verify the aggregated commitment using standard KZG
         let com = com.into_affine();
-        let z = ck.domain.element(i as usize);
-        plain_kzg_verify(ck, &com, z, mi, opening)
+        plain_kzg_verify_inside(ck, i as usize, &com, mi, opening)
     }
 }
 
@@ -302,16 +304,16 @@ mod tests {
     use ark_ec::{bls12::Bls12, pairing::Pairing, CurveGroup};
     use ark_poly::{univariate::DensePolynomial, Radix2EvaluationDomain};
     use ark_poly::{DenseUVPolynomial, EvaluationDomain};
-    use ark_serialize::{Write, CanonicalDeserialize};
-    use ark_std::Zero;
     use ark_serialize::CanonicalSerialize;
+    use ark_serialize::{CanonicalDeserialize, Write};
+    use ark_std::Zero;
 
     use super::kzg_types::CommitmentKey;
 
     use super::VcKZG;
     use crate::vectorcommitment::{
         VectorCommitmentScheme, _vc_test_agg_opening, _vc_test_com_ver, _vc_test_opening,
-        _vc_test_setup
+        _vc_test_setup,
     };
 
     type F = <Bls12_381 as Pairing>::ScalarField;
@@ -321,7 +323,6 @@ mod tests {
     /// test that serialization of commitment key works
     #[test]
     fn kzg_vc_test_par_to_file() {
-
         // generate a commitment key
         let mut rng = ark_std::rand::thread_rng();
         let message_length = 14;
@@ -335,10 +336,10 @@ mod tests {
 
         // read from file
         let file = File::open("ck.crs").unwrap();
-        let ck_r = CommitmentKey::<Bls12_381,D>::deserialize_compressed(&file).unwrap();
+        let ck_r = CommitmentKey::<Bls12_381, D>::deserialize_compressed(&file).unwrap();
 
         // compare
-        assert_eq!(ck,ck_r);
+        assert_eq!(ck, ck_r);
     }
 
     #[test]
@@ -351,7 +352,6 @@ mod tests {
 
         // with message length 14, we should have 16 degrees of freedom
         assert_eq!(ck.domain.size(), 16);
-
 
         // verify that lagranges consistent with u. To do so:
         // Compute g1^f(alpha) once with u (lhs)

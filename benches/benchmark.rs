@@ -1,22 +1,22 @@
-
-use std::fs::File;
-
 use ark_bls12_381::Bls12_381;
 use ark_ec::pairing::Pairing;
-use ark_serialize::CanonicalDeserialize;
-use ark_serialize::CanonicalSerialize;
 use ark_poly::univariate::DensePolynomial;
 use ark_poly::DenseUVPolynomial;
 use ark_poly::Radix2EvaluationDomain;
 use ark_poly_commit::kzg10::{Powers, KZG10};
+use ark_serialize::CanonicalDeserialize;
+use ark_serialize::CanonicalSerialize;
 use ark_serialize::Write;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use ni_agg_lottery::lotteryscheme::vcbased::Parameters;
 use ni_agg_lottery::lotteryscheme::vcbased::VCLotteryScheme;
 use ni_agg_lottery::lotteryscheme::LotteryScheme;
+use ni_agg_lottery::vectorcommitment::kzg::precompute_openings;
 use ni_agg_lottery::vectorcommitment::kzg::CommitmentKey;
 use ni_agg_lottery::vectorcommitment::kzg::VcKZG;
 use ni_agg_lottery::vectorcommitment::VectorCommitmentScheme;
+use std::fs;
+use std::fs::File;
 
 // some types we need during our benchmarks
 type F = <Bls12_381 as Pairing>::ScalarField;
@@ -24,17 +24,25 @@ type D = Radix2EvaluationDomain<F>;
 type VC = VcKZG<Bls12_381, D>;
 type VCL = VCLotteryScheme<F, VC>;
 
-
 // function we use to generate system parameters for our benchmarks
 // to avoid redoing the costly setup over and over again
-pub fn get_parameters<R: rand::Rng>(rng: &mut R, num_lotteries: usize, k: u32) -> Parameters<F, VC> {
-    let path = format!("crs_precomputed/{}.crs",num_lotteries);
+pub fn get_parameters<R: rand::Rng>(
+    rng: &mut R,
+    num_lotteries: usize,
+    k: u32,
+) -> Parameters<F, VC> {
+    let dir = "crs_precomputed/".to_string();
+    let path = format!("crs_precomputed/{}.crs", num_lotteries);
 
     // check if we already have a file containing such a commitment key
     let file = File::open(path.clone());
     if let Ok(file) = file {
-        let ck = CommitmentKey::<Bls12_381,D>::deserialize_compressed(&file).unwrap();
-        let par = Parameters{ ck, num_lotteries, k };
+        let ck = CommitmentKey::<Bls12_381, D>::deserialize_compressed(&file).unwrap();
+        let par = Parameters {
+            ck,
+            num_lotteries,
+            k,
+        };
         return par;
     }
     // otherwise, we generate it and write the commitment key to a file
@@ -43,6 +51,7 @@ pub fn get_parameters<R: rand::Rng>(rng: &mut R, num_lotteries: usize, k: u32) -
     let mut ck_bytes = Vec::new();
     par.ck.serialize_compressed(&mut ck_bytes).unwrap();
 
+    fs::create_dir_all(dir).expect("fail to create directory");
     let mut file = File::create(path).expect("fail to create file");
     file.write_all(&ck_bytes).expect("fail to write to file");
 
@@ -56,6 +65,19 @@ pub fn keygen_bench(c: &mut Criterion) {
     let par = get_parameters(&mut rng, num_lotteries, k);
     c.bench_function("keygen 1022 1000", |b| {
         b.iter(|| VCL::gen(&mut rng, &par));
+    });
+}
+
+pub fn keygen_fk_bench(c: &mut Criterion) {
+    let mut rng = ark_std::rand::thread_rng();
+    let num_lotteries = 1024 - 2;
+    let k = 1000;
+    let par = get_parameters(&mut rng, num_lotteries, k);
+    c.bench_function("keygen_fk 1022 1000", |b| {
+        b.iter(|| {
+            let (_pk, mut sk) = VCL::gen(&mut rng, &par);
+            precompute_openings(&par.ck, &mut sk.state);
+        });
     });
 }
 
@@ -114,5 +136,5 @@ pub fn open_bench(c: &mut Criterion) {
 //     });
 // }
 
-criterion_group!(benches, keygen_bench, kzg_bench);
+criterion_group!(benches, keygen_bench, keygen_fk_bench, kzg_bench);
 criterion_main!(benches);

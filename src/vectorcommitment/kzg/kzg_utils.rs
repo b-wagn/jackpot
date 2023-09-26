@@ -90,7 +90,7 @@ pub fn plain_kzg_verify<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     y: E::ScalarField,
     tau: &Opening<E>,
 ) -> bool {
-    // check e(com*g1^{-y_0}*h^{-hat_y0},g2) == e(v0,r*g2^{-z0})
+    // check e(com*g1^{-y}*h^{-hat_y},g2) == e(v,r*g2^{-z})
     let mut lhs_left = com_kzg.into_group();
     lhs_left -= ck.u[0].mul(y);
     lhs_left -= ck.hat_u[0].mul(tau.hat_y);
@@ -99,6 +99,26 @@ pub fn plain_kzg_verify<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     let rhs = E::pairing(tau.v, rhs_right);
     lhs == rhs
 }
+
+/// Standard KZG verification. Verifies that f(z) = y,
+/// but assumes that z = domain.element(i)
+#[inline]
+pub fn plain_kzg_verify_inside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
+    ck: &CommitmentKey<E, D>,
+    i: usize,
+    com_kzg: &E::G1Affine,
+    y: E::ScalarField,
+    tau: &Opening<E>,
+) -> bool {
+    // check e(com*g1^{-y}*h^{-hat_y0},g2) == e(v0,r*g2^{-z0})
+    let mut lhs_left = com_kzg.into_group();
+    lhs_left -= ck.u[0].mul(y);
+    lhs_left -= ck.hat_u[0].mul(tau.hat_y);
+    let lhs = E::pairing(lhs_left, ck.g2_prepared.clone());
+    let rhs = E::pairing(tau.v,ck.d[i].clone());
+    lhs == rhs
+}
+
 
 /// Compute a KZG commitment for the given vector of evaluations
 #[inline]
