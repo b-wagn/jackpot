@@ -160,8 +160,6 @@ impl<E: Pairing, D: EvaluationDomain<E::ScalarField>>
         // from our evaluations, we compute a standard KZG commitment
         let com_kzg = plain_kzg_com(ck, &evals);
 
-        // TODO: Precompute all openings using FK technique
-
         // determine the random point at which we have to open,
         // and evaluate the polynomial at that point
         let z0: E::ScalarField = get_z0::<E>(&com_kzg);

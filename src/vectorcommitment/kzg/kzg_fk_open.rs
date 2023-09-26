@@ -1,5 +1,9 @@
 use ark_ec::pairing::Pairing;
+use ark_ec::AffineRepr;
+use ark_ec::CurveGroup;
 use ark_poly::EvaluationDomain;
+use ark_std::Zero;
+use std::ops::Mul;
 
 use super::{CommitmentKey, State};
 
@@ -12,43 +16,127 @@ pub fn precompute_openings<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     ck: &CommitmentKey<E, D>,
     st: &mut State<E>,
 ) {
-    todo!();
     // compute openings for polynomial
+    let dsize = ck.domain.size();
+    let openings = precompute_openings_single::<E, D>(&ck.u, &ck.domain, &st.evals[0..dsize]);
 
     // do the same for the masking polynomial,
     // but with different basis
+    let hat_openings =
+        precompute_openings_single::<E, D>(&ck.hat_u, &ck.domain, &st.evals[dsize..2 * dsize]);
 
     // do a componentwise product to get the final openings
+    let mut combined = Vec::with_capacity(dsize);
+    for i in 0..dsize {
+        combined.push((openings[i] + hat_openings[i]).into_affine());
+    }
+
+    // write it into state
+    st.precomputed_v = Some(combined);
 }
 
 /// FK technique to compute openings in a *non-hiding* way
 /// evals contains the domain.size() many evaluations
 /// of the polynomial over the evaluation domain
 fn precompute_openings_single<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
+    powers: &[E::G1Affine],
     domain: &D,
     evals: &[E::ScalarField],
 ) -> Vec<E::G1Affine> {
-    todo!();
     // compute the base polynomial h
+    let coeffs = domain.ifft(&evals);
+    let h = base_poly::<E, D>(powers, domain, &coeffs);
 
     // evaluate h in the exponent using FFT
     // the evaluations are the openings
+    let openings = domain.fft(&h);
 
     // move them into affine (batched)
+    let openings_aff = E::G1::normalize_batch(&openings);
+    openings_aff
 }
 
 /// compute the polynomial h (in exponent) from the paper (see Proposition 1)
+/// The polynomial f is given by domain.size() many coefficients, and we have
+/// powers[i] = g1^{alpha^i}
 /// The ith KZG opening is h(domain.element(i)). Hence, one we have h, we can
 /// compute all openings efficiently using a single FFT in the exponent
 fn base_poly<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
+    powers: &[E::G1Affine],
     domain: &D,
-    evals: &[E::ScalarField],
+    coeffs: &[E::ScalarField],
 ) -> Vec<E::G1> {
-    todo!();
+    /* A naive but slow implementation:
+        let mut naive = Vec::new();
+        let degree = domain.size()-1;
+        for i in 1..=degree {
+            // according to paper:
+            // h_i = f[d]u[d-i] + f[d-1]u[d-i-1] + ... + f[i+1]u[1] + f[i]u[0],
+            // where u[j] = g1^{secret^j} and d = degree
+            // note that this is an MSM of f[i..=d] and u[0..=d-i]
+            let hi = <E::G1 as VariableBaseMSM>::msm(
+                &powers[0..=(degree - i)],
+                &coeffs[i..=degree],
+            )
+            .unwrap();
+            naive.push(hi);
+        }
+        return naive;
+    */
+
+    // we follow the modifications as in the implementation of caulk
+    // https://github.com/caulk-crypto/caulk/blob/main/src/dft.rs#L17
+
+    // Preparation: We need to do FFTs of twice the size.
+    // for that, we make use of a evaluation domain of twice the size
+    // we also let d be the degree of f
+    let d = domain.size() - 1;
+    let domain2 = D::new(2 * domain.size()).unwrap();
+
+    // Step 1: y = DFT(hat_s), where
+    // hat_s = [powers[d-1],...,powers[0], d+2 neutral elements]
+    let mut hat_s = Vec::with_capacity(2 * d + 2);
+    for i in (0..=d - 1).rev() {
+        hat_s.push(powers[i].into_group());
+    }
+    for _ in 0..d + 2 {
+        hat_s.push(E::G1::zero());
+    }
+    let y = domain2.fft(&hat_s);
+
+    // Step 2: v = DFT(hat_c), where
+    // hat_c = [coeffs[d], d zeros, coeffs[d], coeffs[0],...,coeffs[d-1]]
+    let mut hat_c = Vec::with_capacity(2 * d + 2);
+    hat_c.push(coeffs[d]);
+    for _ in 0..d {
+        hat_c.push(E::ScalarField::zero());
+    }
+    hat_c.push(coeffs[d]);
+    for i in 0..d {
+        hat_c.push(coeffs[i]);
+    }
+    let v = domain2.fft(&hat_c);
+
+    // Step 3: u = comp.-wise prod. of y and v
+    //let mut pnu = E::ScalarField::one();
+    let mut u: Vec<E::G1> = Vec::with_capacity(2 * d);
+    for i in 0..2 * d + 2 {
+        // let expo = v[i]*pnu;
+        // u.push(y[i].mul(expo));
+        // pnu *= nu;
+        u.push(y[i].mul(v[i]));
+    }
+
+    // Step 4: hat_h = iDFT(u)
+    let hat_h = domain2.ifft(&u);
+    let h = hat_h[0..d].to_vec();
+    h
 }
 
 #[cfg(test)]
 mod tests {
+
+    use std::vec;
 
     use ark_bls12_381::Bls12_381;
     use ark_ec::pairing::Pairing;
@@ -62,7 +150,7 @@ mod tests {
     use crate::vectorcommitment::kzg::VcKZG;
     use crate::vectorcommitment::VectorCommitmentScheme;
 
-    use super::{precompute_openings_single, base_poly};
+    use super::{base_poly, precompute_openings, precompute_openings_single};
 
     type F = <Bls12_381 as Pairing>::ScalarField;
     type D = Radix2EvaluationDomain<F>;
@@ -79,12 +167,7 @@ mod tests {
 
         for _ in 0..runs {
             // sample random polynomial f and its evaluations
-            let mut coeffs = Vec::new();
-            for _ in 0..ck.domain.size() {
-                coeffs.push(F::rand(&mut rng));
-            }
-            let f = DensePolynomial::from_coefficients_vec(coeffs);
-            let evals = ck.domain.fft(&f.coeffs);
+            let f = DensePolynomial::rand(ck.domain.size() - 1, &mut rng);
             // compute the expected coefficients of h
             // in the exponent (expensive version)
             let mut naive = Vec::new();
@@ -94,17 +177,18 @@ mod tests {
                 // where u[j] = g1^{secret^j} and d = degree
                 // note that this is an MSM of f[i..=d] and u[0..=d-i]
                 let hi = <<Bls12_381 as Pairing>::G1 as VariableBaseMSM>::msm(
-                    &ck.u[0..=(degree-i)],
+                    &ck.u[0..=(degree - i)],
                     &f.coeffs[i..=degree],
                 )
-                .unwrap().into_affine();
+                .unwrap()
+                .into_affine();
                 naive.push(hi);
             }
             // compute h using the function we want to test
-            let h = base_poly::<Bls12_381,D>(&ck.domain, &evals);
+            let h = base_poly::<Bls12_381, D>(&ck.u, &ck.domain, &f.coeffs);
             // check that they are indeed equal
-            for i in 0..=degree-1 {
-                assert_eq!(naive[i], h[i]);
+            for i in 0..=degree - 1 {
+                assert_eq!(naive[i], h[i].into_affine());
             }
         }
     }
@@ -121,11 +205,7 @@ mod tests {
 
         for _ in 0..runs {
             // generate random polynomial and its evaluations
-            let mut coeffs = Vec::new();
-            for _ in 0..ck.domain.size() {
-                coeffs.push(F::rand(&mut rng));
-            }
-            let f = DensePolynomial::from_coefficients_vec(coeffs);
+            let f = DensePolynomial::rand(ck.domain.size() - 1, &mut rng);
             let evals = ck.domain.fft(&f.coeffs);
             // precompute the openings naively using long division (very slow)
             let mut naive: Vec<<Bls12_381 as Pairing>::G1Affine> = Vec::new();
@@ -137,7 +217,7 @@ mod tests {
                 let witness_poly = &fshift / &div;
                 // commit to witness poly at alpha
                 let c = <<Bls12_381 as Pairing>::G1 as VariableBaseMSM>::msm(
-                    &ck.u,
+                    &ck.u[0..ck.domain.size() - 1],
                     &witness_poly.coeffs,
                 )
                 .unwrap();
@@ -145,10 +225,43 @@ mod tests {
             }
             // precompute the openings using the function we want to test
             let fk: Vec<<Bls12_381 as Pairing>::G1Affine> =
-                precompute_openings_single::<Bls12_381, D>(&ck.domain, &evals);
+                precompute_openings_single::<Bls12_381, D>(&ck.u, &ck.domain, &evals);
             // compare the results
             for i in 0..ck.domain.size() {
                 assert_eq!(naive[i], fk[i]);
+            }
+        }
+    }
+
+    // test the public function precompute_openings
+    #[test]
+    fn test_precompute_openings() {
+        let mut rng = ark_std::rand::thread_rng();
+        let degree = 15;
+        let runs = 3;
+
+        for _ in 0..runs {
+            // generate some parameters
+            let ck = VcKZG::<Bls12_381, D>::setup(&mut rng, degree - 1).unwrap();
+
+            // commit to something
+            let m = (0..degree - 1).map(|_| F::rand(&mut rng)).collect();
+            let (_com, mut st) = VcKZG::<Bls12_381, D>::commit(&mut rng, &ck, &m);
+
+            // compute all the openings freshly
+            let mut openings = Vec::new();
+            for i in 0..ck.message_length {
+                let op = VcKZG::<Bls12_381, D>::open(&ck, &st, i as u32).unwrap();
+                openings.push(op.v);
+            }
+
+            // compute the openings with the algorithm we test
+            precompute_openings(&ck, &mut st);
+
+            // check that all openings are the same
+            let precomputed = st.precomputed_v.unwrap();
+            for i in 0..ck.message_length {
+                assert_eq!(precomputed[i], openings[i]);
             }
         }
     }

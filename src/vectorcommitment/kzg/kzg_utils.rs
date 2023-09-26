@@ -294,12 +294,8 @@ mod tests {
         let domain = D::new(degree + 1).unwrap();
         let runs = 10;
         for _ in 0..runs {
-            // sample a random polynomial by sampling coefficients
-            let mut coeffs = Vec::new();
-            for _ in 0..domain.size() {
-                coeffs.push(F::rand(&mut rng));
-            }
-            let f = DensePolynomial::from_coefficients_vec(coeffs);
+            // sample a random polynomial
+            let f = DensePolynomial::rand(domain.size()-1,&mut rng);
             // evaluate the polynomial on the domain
             let evals = domain.fft(&f.coeffs);
             // test that witness_evals_inside works properly over the entire domain
@@ -350,11 +346,7 @@ mod tests {
         let runs = 10;
         for _ in 0..runs {
             // sample a random polynomial by sampling coefficients
-            let mut coeffs = Vec::new();
-            for _ in 0..domain.size() {
-                coeffs.push(F::rand(&mut rng));
-            }
-            let f = DensePolynomial::from_coefficients_vec(coeffs);
+            let f = DensePolynomial::rand(domain.size()-1,&mut rng);
             // evaluate the polynomial on the domain
             let evals : Vec<F> = domain.fft(&f.coeffs);
             // do a few tests with this polynomial
