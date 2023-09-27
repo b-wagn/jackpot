@@ -59,6 +59,14 @@ pub struct CommitmentKey<E: Pairing, D: EvaluationDomain<E::ScalarField>> {
     /// where zi is the ith evaluation point
     /// i should range from 0 to deg
     pub d: Vec<E::G2Affine>,
+
+    /// y = DFT_{2d}(hat_s) for
+    /// hat_s = [u[d-1],...,u[0], d+2 neutral elements]
+    /// precomputed for use in the FK technique
+    pub y: Vec<E::G1Affine>,
+
+    /// same as y, but with hat_u instead of u
+    pub hat_y: Vec<E::G1Affine>,
 }
 
 #[derive(CanonicalSerialize)]

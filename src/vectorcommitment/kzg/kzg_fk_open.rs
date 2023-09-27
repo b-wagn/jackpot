@@ -1,5 +1,6 @@
 use ark_ec::pairing::Pairing;
 use ark_ec::AffineRepr;
+use ark_ec::CurveGroup;
 use ark_poly::EvaluationDomain;
 use ark_std::Zero;
 use std::ops::Mul;
@@ -10,19 +11,46 @@ use super::{CommitmentKey, State};
 // fast amortized way following the FK technique:
 // https://eprint.iacr.org/2023/033.pdf
 
+
+/// Compute the vector y = DFT(hat_s) used for fast amortized
+/// computation of all KZG openings. It is independent of the
+/// committed vector and can therefore be computed once from
+/// the public parameters / commitment key
+pub fn precompute_y<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
+    powers: &[E::G1Affine],
+    domain: &D,
+) -> Vec<E::G1Affine> {
+    // Preparation: We need to do FFTs of twice the size.
+    // for that, we make use of a evaluation domain of twice the size
+    // we also let d be the degree of f
+    let d = domain.size() - 1;
+    let domain2 = D::new(2 * domain.size()).unwrap();
+    // hat_s = [powers[d-1],...,powers[0], d+2 neutral elements]
+    let mut hat_s = Vec::with_capacity(2 * d + 2);
+    for i in (0..=d - 1).rev() {
+        hat_s.push(powers[i].into_group());
+    }
+    for _ in 0..d + 2 {
+        hat_s.push(E::G1::zero());
+    }
+    let y = domain2.fft(&hat_s);
+    E::G1::normalize_batch(&y)
+}
+
+
 /// function to precompute all openings using the FK technique
-pub fn precompute_openings<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
+pub fn all_openings<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     ck: &CommitmentKey<E, D>,
     st: &mut State<E>,
 ) {
     // compute openings for polynomial
     let dsize = ck.domain.size();
-    let mut openings = precompute_openings_single::<E, D>(&ck.u, &ck.domain, &st.evals[0..dsize]);
+    let mut openings = all_openings_single::<E, D>(&ck.y, &ck.domain, &st.evals[0..dsize]);
 
     // do the same for the masking polynomial,
     // but with different basis
     let hat_openings =
-        precompute_openings_single::<E, D>(&ck.hat_u, &ck.domain, &st.evals[dsize..2 * dsize]);
+        all_openings_single::<E, D>(&ck.hat_y, &ck.domain, &st.evals[dsize..2 * dsize]);
 
     // do a componentwise product to get the final openings
     for i in 0..dsize {
@@ -36,14 +64,14 @@ pub fn precompute_openings<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
 /// FK technique to compute openings in a *non-hiding* way
 /// evals contains the domain.size() many evaluations
 /// of the polynomial over the evaluation domain
-fn precompute_openings_single<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
-    powers: &[E::G1Affine],
+fn all_openings_single<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
+    y: &[E::G1Affine],
     domain: &D,
     evals: &[E::ScalarField],
 ) -> Vec<E::G1> {
     // compute the base polynomial h
     let coeffs = domain.ifft(&evals);
-    let mut h = base_poly::<E, D>(powers, domain, &coeffs);
+    let mut h = base_poly::<E, D>(y, domain, &coeffs);
 
     // evaluate h in the exponent using FFT
     // the evaluations are the openings
@@ -51,13 +79,14 @@ fn precompute_openings_single<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     h
 }
 
+
 /// compute the polynomial h (in exponent) from the paper (see Proposition 1)
 /// The polynomial f is given by domain.size() many coefficients, and we have
 /// powers[i] = g1^{alpha^i}
 /// The ith KZG opening is h(domain.element(i)). Hence, one we have h, we can
 /// compute all openings efficiently using a single FFT in the exponent
 fn base_poly<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
-    powers: &[E::G1Affine],
+    y: &[E::G1Affine],
     domain: &D,
     coeffs: &[E::ScalarField],
 ) -> Vec<E::G1> {
@@ -88,19 +117,7 @@ fn base_poly<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     let d = domain.size() - 1;
     let domain2 = D::new(2 * domain.size()).unwrap();
 
-    // Step 1: y = DFT(hat_s), where
-    // hat_s = [powers[d-1],...,powers[0], d+2 neutral elements]
-    // TODO: This is independent of input and could
-    // be precomputed together with the parameters
-    let mut hat_s = Vec::with_capacity(2 * d + 2);
-    for i in (0..=d - 1).rev() {
-        hat_s.push(powers[i].into_group());
-    }
-    for _ in 0..d + 2 {
-        hat_s.push(E::G1::zero());
-    }
-    let y = domain2.fft(&hat_s);
-
+    // Step 1: y = DFT(hat_s) has already been precomputed
     // Step 2: v = DFT(hat_c), where
     // hat_c = [coeffs[d], d zeros, coeffs[d], coeffs[0],...,coeffs[d-1]]
     let mut hat_c = Vec::with_capacity(2 * d + 2);
@@ -115,7 +132,6 @@ fn base_poly<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     //let v = domain2.fft(&hat_c);
     domain2.fft_in_place(&mut hat_c);
     let v = hat_c;
-
 
     // Step 3: u = comp.-wise prod. of y and v
     let mut u: Vec<E::G1> = Vec::with_capacity(2 * d);
@@ -148,7 +164,7 @@ mod tests {
     use crate::vectorcommitment::kzg::VcKZG;
     use crate::vectorcommitment::VectorCommitmentScheme;
 
-    use super::{base_poly, precompute_openings, precompute_openings_single};
+    use super::{base_poly, all_openings, all_openings_single};
 
     type F = <Bls12_381 as Pairing>::ScalarField;
     type D = Radix2EvaluationDomain<F>;
@@ -183,7 +199,7 @@ mod tests {
                 naive.push(hi);
             }
             // compute h using the function we want to test
-            let h = base_poly::<Bls12_381, D>(&ck.u, &ck.domain, &f.coeffs);
+            let h = base_poly::<Bls12_381, D>(&ck.y, &ck.domain, &f.coeffs);
             // check that they are indeed equal
             for i in 0..=degree - 1 {
                 assert_eq!(naive[i], h[i].into_affine());
@@ -191,9 +207,9 @@ mod tests {
         }
     }
 
-    /// test function precompute_openings_single
+    /// test function all_openings_single
     #[test]
-    fn test_precompute_openings_single() {
+    fn test_all_openings_single() {
         let mut rng = ark_std::rand::thread_rng();
         let degree = 15;
         let runs = 10;
@@ -223,7 +239,7 @@ mod tests {
             }
             // precompute the openings using the function we want to test
             let fk: Vec<<Bls12_381 as Pairing>::G1> =
-                precompute_openings_single::<Bls12_381, D>(&ck.u, &ck.domain, &evals);
+                all_openings_single::<Bls12_381, D>(&ck.y, &ck.domain, &evals);
             // compare the results
             for i in 0..ck.domain.size() {
                 assert_eq!(naive[i], fk[i].into_affine());
@@ -231,9 +247,9 @@ mod tests {
         }
     }
 
-    // test the public function precompute_openings
+    // test the public function all_openings
     #[test]
-    fn test_precompute_openings() {
+    fn test_all_openings() {
         let mut rng = ark_std::rand::thread_rng();
         let degree = 15;
         let runs = 3;
@@ -254,7 +270,7 @@ mod tests {
             }
 
             // compute the openings with the algorithm we test
-            precompute_openings(&ck, &mut st);
+            all_openings(&ck, &mut st);
 
             // check that all openings are the same
             let precomputed = st.precomputed_v.unwrap();

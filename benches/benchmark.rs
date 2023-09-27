@@ -97,5 +97,5 @@ pub fn keygen_fk_bench_large(c: &mut Criterion) {
 //     });
 // }
 
-criterion_group!(benches, keygen_fk_bench);
+criterion_group!(benches, keygen_fk_bench, keygen_fk_bench_large);
 criterion_main!(benches);

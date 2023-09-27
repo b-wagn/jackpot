@@ -17,9 +17,10 @@ mod kzg_utils;
 /// this module allows to compute all
 /// openings in a fast amortized way
 pub mod kzg_fk_open;
-pub use kzg_fk_open::precompute_openings;
+pub use kzg_fk_open::all_openings;
 
 
+use self::kzg_fk_open::precompute_y;
 pub use self::kzg_types::Commitment;
 pub use self::kzg_types::CommitmentKey;
 pub use self::kzg_types::Opening;
@@ -81,8 +82,8 @@ impl<E: Pairing, D: EvaluationDomain<E::ScalarField>> VectorCommitmentScheme<E::
         // raise g1 to the powers of alpha --> u
         // raise h to the powers of alpha  --> hat_u
         let deg = domain.size() - 1;
-        let mut u = Vec::new();
-        let mut hat_u = Vec::new();
+        let mut u: Vec<E::G1Affine> = Vec::new();
+        let mut hat_u: Vec<E::G1Affine> = Vec::new();
         let mut curr_g = g1;
         let mut curr_h = h;
         u.push(curr_g.into_affine());
@@ -117,6 +118,11 @@ impl<E: Pairing, D: EvaluationDomain<E::ScalarField>> VectorCommitmentScheme<E::
             d.push(g2.mul(exponent).into_affine());
         }
 
+        // precompute y and hat_y for FK algorithm
+        let y = precompute_y::<E,D>(&u, &domain);
+        let hat_y = precompute_y::<E,D>(&hat_u, &domain);
+
+        // assemble commitment key
         let g2 = g2.into_affine();
         Some(CommitmentKey {
             message_length,
@@ -127,6 +133,8 @@ impl<E: Pairing, D: EvaluationDomain<E::ScalarField>> VectorCommitmentScheme<E::
             g2,
             r,
             d,
+            y,
+            hat_y,
         })
     }
 

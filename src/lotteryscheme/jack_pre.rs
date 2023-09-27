@@ -1,4 +1,4 @@
-use crate::vectorcommitment::kzg::precompute_openings;
+use crate::vectorcommitment::kzg::all_openings;
 
 use super::{jack::Jack, LotteryScheme};
 
@@ -23,7 +23,7 @@ impl LotteryScheme for JackPre {
         par: &Self::Parameters,
     ) -> (Self::PublicKey, Self::SecretKey) {
         let (pk, mut sk) = <Jack as LotteryScheme>::gen(rng, par);
-        precompute_openings(&par.ck, &mut sk.state);
+        all_openings(&par.ck, &mut sk.state);
         (pk, sk)
     }
 
