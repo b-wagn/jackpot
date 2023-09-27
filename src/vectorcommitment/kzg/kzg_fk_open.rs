@@ -1,6 +1,5 @@
 use ark_ec::pairing::Pairing;
 use ark_ec::AffineRepr;
-use ark_ec::CurveGroup;
 use ark_poly::EvaluationDomain;
 use ark_std::Zero;
 use std::ops::Mul;
@@ -18,7 +17,7 @@ pub fn precompute_openings<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
 ) {
     // compute openings for polynomial
     let dsize = ck.domain.size();
-    let openings = precompute_openings_single::<E, D>(&ck.u, &ck.domain, &st.evals[0..dsize]);
+    let mut openings = precompute_openings_single::<E, D>(&ck.u, &ck.domain, &st.evals[0..dsize]);
 
     // do the same for the masking polynomial,
     // but with different basis
@@ -26,13 +25,12 @@ pub fn precompute_openings<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
         precompute_openings_single::<E, D>(&ck.hat_u, &ck.domain, &st.evals[dsize..2 * dsize]);
 
     // do a componentwise product to get the final openings
-    let mut combined = Vec::with_capacity(dsize);
     for i in 0..dsize {
-        combined.push((openings[i] + hat_openings[i]).into_affine());
+        openings[i] = openings[i] + hat_openings[i];
     }
 
     // write it into state
-    st.precomputed_v = Some(combined);
+    st.precomputed_v = Some(openings);
 }
 
 /// FK technique to compute openings in a *non-hiding* way
@@ -42,18 +40,15 @@ fn precompute_openings_single<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     powers: &[E::G1Affine],
     domain: &D,
     evals: &[E::ScalarField],
-) -> Vec<E::G1Affine> {
+) -> Vec<E::G1> {
     // compute the base polynomial h
     let coeffs = domain.ifft(&evals);
-    let h = base_poly::<E, D>(powers, domain, &coeffs);
+    let mut h = base_poly::<E, D>(powers, domain, &coeffs);
 
     // evaluate h in the exponent using FFT
     // the evaluations are the openings
-    let openings = domain.fft(&h);
-
-    // move them into affine (batched)
-    let openings_aff = E::G1::normalize_batch(&openings);
-    openings_aff
+    domain.fft_in_place(&mut h);
+    h
 }
 
 /// compute the polynomial h (in exponent) from the paper (see Proposition 1)
@@ -95,6 +90,8 @@ fn base_poly<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
 
     // Step 1: y = DFT(hat_s), where
     // hat_s = [powers[d-1],...,powers[0], d+2 neutral elements]
+    // TODO: This is independent of input and could
+    // be precomputed together with the parameters
     let mut hat_s = Vec::with_capacity(2 * d + 2);
     for i in (0..=d - 1).rev() {
         hat_s.push(powers[i].into_group());
@@ -115,20 +112,21 @@ fn base_poly<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     for i in 0..d {
         hat_c.push(coeffs[i]);
     }
-    let v = domain2.fft(&hat_c);
+    //let v = domain2.fft(&hat_c);
+    domain2.fft_in_place(&mut hat_c);
+    let v = hat_c;
+
 
     // Step 3: u = comp.-wise prod. of y and v
-    //let mut pnu = E::ScalarField::one();
     let mut u: Vec<E::G1> = Vec::with_capacity(2 * d);
     for i in 0..2 * d + 2 {
-        // let expo = v[i]*pnu;
-        // u.push(y[i].mul(expo));
-        // pnu *= nu;
         u.push(y[i].mul(v[i]));
     }
 
     // Step 4: hat_h = iDFT(u)
-    let hat_h = domain2.ifft(&u);
+    //let hat_h = domain2.ifft(&u);
+    domain2.ifft_in_place(&mut u);
+    let hat_h = u;
     let h = hat_h[0..d].to_vec();
     h
 }
@@ -224,11 +222,11 @@ mod tests {
                 naive.push(c.into_affine());
             }
             // precompute the openings using the function we want to test
-            let fk: Vec<<Bls12_381 as Pairing>::G1Affine> =
+            let fk: Vec<<Bls12_381 as Pairing>::G1> =
                 precompute_openings_single::<Bls12_381, D>(&ck.u, &ck.domain, &evals);
             // compare the results
             for i in 0..ck.domain.size() {
-                assert_eq!(naive[i], fk[i]);
+                assert_eq!(naive[i], fk[i].into_affine());
             }
         }
     }

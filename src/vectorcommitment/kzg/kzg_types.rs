@@ -93,5 +93,5 @@ pub struct State<E: Pairing> {
 
     /// optionally stores precomputed KZG openings
     /// Note: this is only the group element part
-    pub precomputed_v: Option<Vec<E::G1Affine>>,
+    pub precomputed_v: Option<Vec<E::G1>>,
 }

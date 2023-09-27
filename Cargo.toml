@@ -1,5 +1,5 @@
 [package]
-name = "ni-agg-lottery"
+name = "jackpot"
 version = "0.1.0"
 edition = "2021"
 
@@ -20,3 +20,14 @@ criterion = "0.5.1"
 [[bench]]
 name = "benchmark"
 harness = false
+
+[features]
+asm = [ "ark-ff/asm" ]
+parallel = [
+    "ark-std/parallel",
+    "ark-ff/parallel",
+    "ark-poly/parallel"
+    ]
+print-trace = [
+    "ark-std/print-trace"
+]

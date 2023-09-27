@@ -209,7 +209,7 @@ impl<E: Pairing, D: EvaluationDomain<E::ScalarField>> VectorCommitmentScheme<E::
         // to the witness polynomial. Either we already have it
         // precomputed, or we compute it in evaluation form
         let v = if let Some(vs) = &st.precomputed_v {
-            vs[i as usize]
+            vs[i as usize].into_affine()
         } else {
             let deg = ck.domain.size();
             let mut witn_evals = Vec::new();

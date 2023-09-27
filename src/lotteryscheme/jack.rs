@@ -29,6 +29,7 @@ pub fn get_jack_parameters<R: rand::Rng>(
 
     // check if we already have a file containing such a commitment key
     let file = File::open(path.clone());
+    println!("[INFO] Looking for parameters in file.");
     if let Ok(file) = file {
         let ck = <VC as VectorCommitmentScheme<F>>::CommitmentKey::deserialize_compressed(&file)
             .unwrap();
@@ -37,8 +38,10 @@ pub fn get_jack_parameters<R: rand::Rng>(
             num_lotteries,
             k,
         };
+        println!("[INFO] Found parameters in file.");
         return par;
     }
+    println!("[INFO] Did not find parameters in file. Generating new ones.");
     // otherwise, we generate it and write the commitment key to a file
     let par = <Jack as LotteryScheme>::setup(rng, num_lotteries, k).unwrap();
     // write it to a file
