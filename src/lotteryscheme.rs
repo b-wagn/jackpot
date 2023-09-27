@@ -1,7 +1,21 @@
 use ark_std::rand::Rng;
 
+/// This module contains a generic lottery scheme
+/// based on a given vector commitment scheme
 pub mod vcbased;
+/// This module contains Jack, the lottery scheme
+/// based on the simulation-extractable KZG variant
+/// instantiated using curve Bls12_381
+pub mod jack;
+/// This module contains JackPre, same as Jack, but
+/// with some preprocessing on key generation such
+/// that generating winning tickets is faster
+pub mod jack_pre;
+/// This module contains the folklore BLS+Hash
+/// lottery scheme. That is, one wins if H(sig) < T
+pub mod bls_hash;
 
+/// A trait that models a lottery scheme
 pub trait LotteryScheme {
     type Parameters;
     type PublicKey;
