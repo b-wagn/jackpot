@@ -110,15 +110,14 @@ impl<E: Pairing, D: EvaluationDomain<E::ScalarField>> VectorCommitmentScheme<E::
         let r = g2.mul(alpha).into_affine();
 
         // compute all d[i] = g2^{alpha - zi}
-        let mut d: Vec<<E as Pairing>::G2Prepared> = Vec::new();
+        let mut d = Vec::new();
         for i in 0..message_length {
             let z = domain.element(i);
             let exponent: E::ScalarField = alpha - z;
-            d.push(g2.mul(exponent).into_affine().into());
+            d.push(g2.mul(exponent).into_affine());
         }
 
         let g2 = g2.into_affine();
-        let g2_prepared = g2.into();
         Some(CommitmentKey {
             message_length,
             domain,
@@ -126,7 +125,6 @@ impl<E: Pairing, D: EvaluationDomain<E::ScalarField>> VectorCommitmentScheme<E::
             hat_u,
             lagranges,
             g2,
-            g2_prepared,
             r,
             d,
         })

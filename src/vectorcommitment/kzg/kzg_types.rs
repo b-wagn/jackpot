@@ -50,9 +50,6 @@ pub struct CommitmentKey<E: Pairing, D: EvaluationDomain<E::ScalarField>> {
     /// generator of G2
     pub g2: E::G2Affine,
 
-    /// generator of G2, prepared for pairing
-    pub g2_prepared: E::G2Prepared,
-
     /// r = g2^{\alpha}, needed for verification
     pub r: E::G2Affine,
 
@@ -61,7 +58,7 @@ pub struct CommitmentKey<E: Pairing, D: EvaluationDomain<E::ScalarField>> {
     /// namely, d[i] = g2^{alpha - zi},
     /// where zi is the ith evaluation point
     /// i should range from 0 to deg
-    pub d: Vec<E::G2Prepared>,
+    pub d: Vec<E::G2Affine>,
 }
 
 #[derive(CanonicalSerialize)]

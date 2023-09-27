@@ -94,7 +94,7 @@ pub fn plain_kzg_verify<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     let mut lhs_left = com_kzg.into_group();
     lhs_left -= ck.u[0].mul(y);
     lhs_left -= ck.hat_u[0].mul(tau.hat_y);
-    let lhs = E::pairing(lhs_left, ck.g2_prepared.clone());
+    let lhs = E::pairing(lhs_left, ck.g2);
     let rhs_right = ck.r.into_group() - ck.g2.mul(z);
     let rhs = E::pairing(tau.v, rhs_right);
     lhs == rhs
@@ -114,8 +114,8 @@ pub fn plain_kzg_verify_inside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     let mut lhs_left = com_kzg.into_group();
     lhs_left -= ck.u[0].mul(y);
     lhs_left -= ck.hat_u[0].mul(tau.hat_y);
-    let lhs = E::pairing(lhs_left, ck.g2_prepared.clone());
-    let rhs = E::pairing(tau.v,ck.d[i].clone());
+    let lhs = E::pairing(lhs_left, ck.g2);
+    let rhs = E::pairing(tau.v,ck.d[i]);
     lhs == rhs
 }
 
