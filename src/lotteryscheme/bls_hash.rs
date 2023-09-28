@@ -100,7 +100,7 @@ fn _bls_batch_ver(pks: &[G2Affine], sigs: &[G1Affine], mes: &[u8; 40]) -> bool {
         return false;
     }
     // we let h = H(m)
-    let h = hash_to_group(mes);
+    let _h = hash_to_group(mes);
     // a single verification is given by equation
     // e(sig_i, g2) = e(h,pk_i)
     // so we batch them together to
@@ -108,7 +108,7 @@ fn _bls_batch_ver(pks: &[G2Affine], sigs: &[G1Affine], mes: &[u8; 40]) -> bool {
     // for aggsig = prod_i sig_i^{chi^{i-1}}
     // and aggpk  = prod_i  pk_i^{chi^{i-1}}
     // where chi is derived from the sigs
-    let chi = F::zero(); // TODO
+    let _chi = F::zero(); // TODO
     todo!();
 }
 
