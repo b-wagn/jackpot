@@ -19,6 +19,7 @@ pub struct Parameters<F: Field, VC: VectorCommitmentScheme<F>> {
     pub ck: VC::CommitmentKey,
     pub num_lotteries: usize,
     pub k: u32,
+    pub log_k : u32,
 }
 pub struct PublicKey<F: Field, VC: VectorCommitmentScheme<F>> {
     pub com: VC::Commitment,
@@ -34,7 +35,7 @@ pub type LotterySeed = [u8; 32];
 
 #[inline]
 fn get_challenge<F: Field, VC: VectorCommitmentScheme<F>>(
-    _k: u32,
+    log_k: u32,
     pk: &PublicKey<F, VC>,
     pid: u32,
     i: u32,
@@ -52,8 +53,21 @@ fn get_challenge<F: Field, VC: VectorCommitmentScheme<F>>(
     hasher.update(lseed);
 
     let digest = hasher.finalize();
-    //TODO: This is not correct, hash should be in [k]
-    F::from_random_bytes(&digest).unwrap()
+    // we take the first log_k bits and interpret as an integer
+    // for that, first find out how many bytes we use entirely
+    assert!(log_k <= 32 * 8);
+    let num_fullbytes = (log_k >> 3) as usize;
+    let mut hashbytes: Vec<u8> = vec![0x00;num_fullbytes+1];
+    for j in 0..num_fullbytes {
+        hashbytes[j] = digest[j];
+    }
+    // for the final byte we only need a part of it
+    let nextbyte = digest[num_fullbytes];
+    let expected = log_k & 0x07;
+    let mask = (1 << expected) - 1;
+    hashbytes[num_fullbytes] = nextbyte & mask;
+    // interpret as field element
+    F::from_random_bytes(&hashbytes).unwrap()
 }
 
 // returns a random vector of length n of F where the elements are
@@ -76,12 +90,20 @@ impl<F: Field, VC: VectorCommitmentScheme<F>> LotteryScheme for VCLotteryScheme<
     type LotterySeed = LotterySeed;
 
     fn setup<R: rand::Rng>(rng: &mut R, num_lotteries: usize, k: u32) -> Option<Self::Parameters> {
+        // we abort for insane values of k
+        // namely, if log_2 k > 256 or k is not power of two
+        let log_k = u32::BITS - k.leading_zeros() - 1;
+        if 1 << log_k != k || log_k > 256 {
+            return None;
+        }
+
         // The parameters are just a fresh commitment key.
         let ck = VC::setup(rng, num_lotteries);
         ck.map(|ck| Self::Parameters {
             ck,
             num_lotteries,
             k,
+            log_k
         })
     }
 
@@ -112,7 +134,7 @@ impl<F: Field, VC: VectorCommitmentScheme<F>> LotteryScheme for VCLotteryScheme<
         pk: &Self::PublicKey,
     ) -> Option<Self::Ticket> {
         // get a challenge
-        let x = get_challenge(par.k, pk, pid, i, lseed);
+        let x = get_challenge(par.log_k, pk, pid, i, lseed);
         // we win if x = v_i
         if i as usize > sk.v.len() || sk.v[i as usize] != x {
             return None;
@@ -142,7 +164,7 @@ impl<F: Field, VC: VectorCommitmentScheme<F>> LotteryScheme for VCLotteryScheme<
         let mut coms = Vec::new();
         let mut openings = Vec::new();
         for j in 0..l {
-            xs.push(get_challenge(par.k, &pks[j], pids[j], i, lseed));
+            xs.push(get_challenge(par.log_k, &pks[j], pids[j], i, lseed));
             coms.push(&pks[j].com);
             openings.push(&tickets[j].opening);
         }
@@ -170,7 +192,7 @@ impl<F: Field, VC: VectorCommitmentScheme<F>> LotteryScheme for VCLotteryScheme<
         let mut xs = Vec::new();
         let mut coms = Vec::new();
         for j in 0..l {
-            xs.push(get_challenge(par.k, &pks[j], pids[j], i, lseed));
+            xs.push(get_challenge(par.log_k, &pks[j], pids[j], i, lseed));
             coms.push(&pks[j].com);
         }
 
@@ -178,5 +200,3 @@ impl<F: Field, VC: VectorCommitmentScheme<F>> LotteryScheme for VCLotteryScheme<
         VC::verify(&par.ck, i, &xs, &coms, &ticket.opening)
     }
 }
-
-// TODO: Tests?

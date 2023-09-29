@@ -2,7 +2,6 @@ use criterion::Criterion;
 
 use jackpot::lotteryscheme::{
     jack::{get_jack_parameters, Jack},
-    jack_pre::JackPre,
     LotteryScheme,
 };
 

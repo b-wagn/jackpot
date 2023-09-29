@@ -2,7 +2,6 @@ use criterion::Criterion;
 
 use jackpot::lotteryscheme::{
     jack::{get_jack_parameters, Jack},
-    jack_pre::JackPre,
     LotteryScheme,
 };
 
@@ -20,12 +19,6 @@ fn keygen_bench(c: &mut Criterion, ld: usize) {
     let label = format!("keygen_jack_{}", ld);
     c.bench_function(&label, |b| {
         b.iter(|| <Jack as LotteryScheme>::gen(&mut rng, &par));
-    });
-
-    // benchmark jack_pre
-    let label = format!("keygen_jackpre_{}", ld);
-    c.bench_function(&label, |b| {
-        b.iter(|| <JackPre as LotteryScheme>::gen(&mut rng, &par));
     });
 }
 

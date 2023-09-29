@@ -4,7 +4,7 @@ use super::{
     vcbased::{Parameters, VCLotteryScheme},
     LotteryScheme,
 };
-use crate::vectorcommitment::{kzg::VcKZG, VectorCommitmentScheme};
+use crate::vectorcommitment::{kzg::{VcKZG, all_openings}, VectorCommitmentScheme};
 use ark_bls12_381::Bls12_381;
 use ark_ec::pairing::Pairing;
 use ark_poly::Radix2EvaluationDomain;
@@ -33,10 +33,12 @@ pub fn get_jack_parameters<R: rand::Rng>(
     if let Ok(file) = file {
         let ck = <VC as VectorCommitmentScheme<F>>::CommitmentKey::deserialize_compressed(&file)
             .unwrap();
+        let log_k = u32::BITS - k.leading_zeros() - 1;
         let par = Parameters {
             ck,
             num_lotteries,
             k,
+            log_k
         };
         println!("[INFO] Found parameters in file.");
         return par;
@@ -53,4 +55,11 @@ pub fn get_jack_parameters<R: rand::Rng>(
     file.write_all(&ck_bytes).expect("fail to write to file");
 
     par
+}
+
+
+impl Jack {
+    pub fn fk_preprocess(par: &<Jack as LotteryScheme>::Parameters, sk : &mut <Jack as LotteryScheme>::SecretKey) {
+        all_openings(&par.ck, &mut sk.state);
+    }
 }
