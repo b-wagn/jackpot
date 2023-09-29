@@ -3,6 +3,7 @@ use std::ops::Mul;
 use super::LotteryScheme;
 use ark_bls12_381::g1::Config as G1Config;
 use ark_bls12_381::Bls12_381;
+use ark_ec::AffineRepr;
 use ark_ec::hashing::HashToCurve;
 use ark_ec::{
     hashing::{curve_maps::wb::WBMap, map_to_curve_hasher::MapToCurveBasedHasher},
@@ -67,7 +68,7 @@ fn winning_predicate(log_k: u32, sig: &G1Affine) -> bool {
 }
 
 /// hash a message into group G1
-fn hash_to_group(mes: &[u8; 40]) -> G1Affine {
+fn hash_to_group(mes: &[u8; 36]) -> G1Affine {
     let hasher =
         MapToCurveBasedHasher::<G1, DefaultFieldHasher<Sha256, 128>, WBMap<G1Config>>::new(DOMAIN)
             .unwrap();
@@ -75,14 +76,14 @@ fn hash_to_group(mes: &[u8; 40]) -> G1Affine {
 }
 
 /// computes a BLS signature for the given message
-fn bls_sign(sk: &F, mes: &[u8; 40]) -> G1Affine {
+fn bls_sign(sk: &F, mes: &[u8; 36]) -> G1Affine {
     // signature is Hash(m)^sk
     let h = hash_to_group(mes);
     h.mul(sk).into_affine()
 }
 
 /// verifies a BLS signature
-fn bls_ver(g2: &G2Affine, pk: &G2Affine, sig: &G1Affine, mes: &[u8; 40]) -> bool {
+fn bls_ver(g2: &G2Affine, pk: &G2, sig: &G1, mes: &[u8; 36]) -> bool {
     // we let h = H(m)
     let h = hash_to_group(mes);
     // check e(sig, g2) = e(h,pk)
@@ -92,40 +93,50 @@ fn bls_ver(g2: &G2Affine, pk: &G2Affine, sig: &G1Affine, mes: &[u8; 40]) -> bool
 }
 
 /// verifies a bunch of BLS signatures for the same message
-fn _bls_batch_ver(pks: &[G2Affine], sigs: &[G1Affine], mes: &[u8; 40]) -> bool {
+fn bls_batch_ver(g2: &G2Affine, pks: &[G2Affine], sigs: &[G1Affine], mes: &[u8; 36]) -> bool {
     if pks.len() != sigs.len() {
         return false;
     }
     if pks.len() < 1 {
         return false;
     }
+    let le = pks.len();
     // we let h = H(m)
-    let _h = hash_to_group(mes);
     // a single verification is given by equation
     // e(sig_i, g2) = e(h,pk_i)
     // so we batch them together to
     // e(aggsig, g2) = e(h, aggpk)
     // for aggsig = prod_i sig_i^{chi^{i-1}}
     // and aggpk  = prod_i  pk_i^{chi^{i-1}}
-    // where chi is derived from the sigs
-    let _chi = F::zero(); // TODO
-    todo!();
+    // where chi is random and we use Horner's rule
+    let mut rng = ark_std::rand::thread_rng();
+    let chi = F::rand(&mut rng);
+    let mut aggsig = sigs[le-1].into_group();
+    let mut aggpk = pks[le-1].into_group();
+    for j in (0..=le-2).rev() {
+        aggsig *= chi;
+        aggpk *= chi;
+        aggsig += sigs[j];
+        aggpk += pks[j];
+    }
+    bls_ver(g2, &aggpk, &aggsig, mes)
 }
 
 /// function to assemble the message to sign
-/// from a pid, lseed, and lottery number i
-fn assemble_message(i: u32, lseed: &[u8; 32], pid: u32) -> [u8; 40] {
+/// from lseed, and lottery number i.
+/// Note: We do not add pid as part of the message
+/// to make batch verification possible. However,
+/// this means that two parties with the same public
+/// key will always win either both or not.
+/// A real system should handle this case differently
+fn assemble_message(i: u32, lseed: &[u8; 32]) -> [u8; 36] {
     let ibytes = i.to_le_bytes();
-    let pidbytes = pid.to_le_bytes();
-    let mut mes = [0; 40];
+    let mut mes = [0; 36];
     for j in 0..4 {
         mes[j] = ibytes[j];
     }
-    for j in 0..4 {
-        mes[4 + j] = pidbytes[j];
-    }
     for j in 0..32 {
-        mes[8 + j] = lseed[j];
+        mes[4 + j] = lseed[j];
     }
     mes
 }
@@ -134,7 +145,7 @@ impl LotteryScheme for BLSHash {
     type Parameters = BLSParameters;
     type PublicKey = G2Affine;
     type SecretKey = F;
-    type Ticket = G1Affine;
+    type Ticket = Vec::<G1Affine>; // trivial aggregation
     type LotterySeed = [u8; 32];
 
     fn setup<R: rand::Rng>(rng: &mut R, _num_lotteries: usize, k: u32) -> Option<Self::Parameters> {
@@ -170,19 +181,19 @@ impl LotteryScheme for BLSHash {
         par: &Self::Parameters,
         i: u32,
         lseed: &Self::LotterySeed,
-        pid: u32,
+        _pid: u32,
         sk: &Self::SecretKey,
         _pk: &Self::PublicKey,
     ) -> Option<Self::Ticket> {
         // Compute a signature of (lseed,pid,i)
-        let mes = assemble_message(i, lseed, pid);
+        let mes = assemble_message(i, lseed);
         let sig = bls_sign(sk, &mes);
         // check if it is winning. if it is:
         // output the signature as the ticket
         if !winning_predicate(par.log_k, &sig) {
             return None;
         }
-        Some(sig)
+        Some(vec![sig])
     }
 
     /// Aggregation is not supported
@@ -192,9 +203,11 @@ impl LotteryScheme for BLSHash {
         _lseed: &Self::LotterySeed,
         _pids: &Vec<u32>,
         _pks: &Vec<Self::PublicKey>,
-        _tickets: &Vec<Self::Ticket>,
+        tickets: &Vec<Self::Ticket>,
     ) -> Option<Self::Ticket> {
-        None
+        // Trivial aggregation:
+        // Tickets are just concatenated
+        Some(tickets.concat())
     }
 
     fn verify(
@@ -208,17 +221,22 @@ impl LotteryScheme for BLSHash {
         if pids.len() != pks.len() {
             return false;
         }
-        if pids.len() != 1 {
+        if pids.len() != ticket.len() {
             return false;
         }
-        // verify signature
-        let mes = assemble_message(i, lseed, pids[0]);
-        if !bls_ver(&par.g2, &pks[0], &ticket, &mes) {
+        if pids.len() < 1 {
             return false;
         }
-        // verify that it is winning
-        if !winning_predicate(par.log_k, &ticket) {
+        // verify all signatures
+        let mes = assemble_message(i, lseed);
+        if !bls_batch_ver(&par.g2, pks, ticket, &mes) {
             return false;
+        }
+        // verify that all signatures are winning
+        for sig in ticket {
+            if !winning_predicate(par.log_k, &sig) {
+                return false;
+            }
         }
         true
     }
@@ -226,13 +244,15 @@ impl LotteryScheme for BLSHash {
 
 #[cfg(test)]
 mod tests {
-    use crate::lotteryscheme::{bls_hash::bls_ver, LotteryScheme};
+    use ark_ec::AffineRepr;
+
+    use crate::lotteryscheme::{bls_hash::{bls_ver, bls_batch_ver}, LotteryScheme};
 
     use super::{bls_sign, BLSHash};
 
     /// test that an honest BLS signature verifies
     #[test]
-    fn test_bls_sign() {
+    fn test_bls_sign_and_ver() {
         let mut rng = ark_std::rand::thread_rng();
         let runs = 10;
 
@@ -241,10 +261,39 @@ mod tests {
             let par = BLSHash::setup(&mut rng, 1024, 1024).unwrap();
             let (pk, sk) = BLSHash::gen(&mut rng, &par);
             // sign a message
-            let mes = [0x08; 40];
+            let mes = [0x08; 36];
             let sig = bls_sign(&sk, &mes);
             // assert that it verifies
-            assert!(bls_ver(&par.g2, &pk, &sig, &mes));
+            assert!(bls_ver(&par.g2, &pk.into_group(), &sig.into_group(), &mes));
         }
+    }
+
+    /// test that a bunch of honest BLS signatures batch verify
+    #[test]
+    fn test_bls_sign_and_batch_ver() {
+        let mut rng = ark_std::rand::thread_rng();
+        let runs = 5;
+        let numkeys = 20;
+        for _ in 0..runs {
+                // generate parameters and some keys
+                let par = BLSHash::setup(&mut rng, 1024, 1024).unwrap();
+                let mut pks = Vec::new();
+                let mut sks = Vec::new();
+                for _ in 0..numkeys {
+                    let (pk, sk) = BLSHash::gen(&mut rng, &par);
+                    pks.push(pk);
+                    sks.push(sk);
+                }
+
+                // sign a message with all keys
+                let mes = [0x08; 36];
+                let mut sigs = Vec::new();
+                for j in 0..numkeys {
+                    let sig = bls_sign(&sks[j], &mes);
+                    sigs.push(sig);
+                }
+                // assert that they batch verify
+                assert!(bls_batch_ver(&par.g2, &pks, &sigs, &mes));
+            }
     }
 }
