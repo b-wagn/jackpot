@@ -16,7 +16,6 @@ use super::Commitment;
 use super::CommitmentKey;
 use super::Opening;
 
-
 // This module contains helper functions for the Simulation Extractable KZG Vector commitment
 
 /// Computes the challenge for a commitment
@@ -115,10 +114,9 @@ pub fn plain_kzg_verify_inside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     lhs_left -= ck.u[0].mul(y);
     lhs_left -= ck.hat_u[0].mul(tau.hat_y);
     let lhs = E::pairing(lhs_left, ck.g2);
-    let rhs = E::pairing(tau.v,ck.d[i]);
+    let rhs = E::pairing(tau.v, ck.d[i]);
     lhs == rhs
 }
-
 
 /// Compute a KZG commitment for the given vector of evaluations
 #[inline]
@@ -161,7 +159,7 @@ pub fn witness_evals_inside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     domain: &D,
     evals: &[E::ScalarField],
     i: usize,
-    witn_evals : &mut Vec::<E::ScalarField>,
+    witn_evals: &mut Vec<E::ScalarField>,
 ) {
     // need that later for index calculation
     let oldsize = witn_evals.len();
@@ -192,7 +190,7 @@ pub fn witness_evals_inside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     // now witn_evals is correctly computed for all j!=i.
     // whats left is to compute the ith evaluation properly
     // https://dankradfeist.de/ethereum/2021/06/18/pcs-multiproofs.html
-    witn_evals[oldsize+i] = {
+    witn_evals[oldsize + i] = {
         let mut sum = E::ScalarField::zero();
         for j in 0..domain.size() {
             if j == i {
@@ -235,8 +233,8 @@ pub fn witness_evals_outside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     domain: &D,
     evals: &[E::ScalarField],
     fz: E::ScalarField,
-    inv_diffs : &[E::ScalarField],
-    witn_evals : &mut Vec::<E::ScalarField>,
+    inv_diffs: &[E::ScalarField],
+    witn_evals: &mut Vec<E::ScalarField>,
 ) {
     // witn_evals[i] = (evals[i] - fz) / (domain[i]-z)
     for i in 0..domain.size() {
@@ -261,7 +259,7 @@ pub fn evaluate_outside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     let factor = nom / domain.size_as_field_element();
     let mut sum = E::ScalarField::zero();
     for i in 0..domain.size() {
-        let term = - domain.element(i) * inv_diffs[i];
+        let term = -domain.element(i) * inv_diffs[i];
         sum += evals[i] * term;
     }
     factor * sum
@@ -278,7 +276,10 @@ mod tests {
     use ark_std::One;
     use ark_std::UniformRand;
 
-    use super::{find_in_domain, evaluate_outside, get_z0, inv_diffs, witness_evals_inside, witness_evals_outside};
+    use super::{
+        evaluate_outside, find_in_domain, get_z0, inv_diffs, witness_evals_inside,
+        witness_evals_outside,
+    };
 
     type F = <Bls12_381 as Pairing>::ScalarField;
     type D = Radix2EvaluationDomain<F>;
@@ -315,7 +316,7 @@ mod tests {
         let runs = 10;
         for _ in 0..runs {
             // sample a random polynomial
-            let f = DensePolynomial::rand(domain.size()-1,&mut rng);
+            let f = DensePolynomial::rand(domain.size() - 1, &mut rng);
             // evaluate the polynomial on the domain
             let evals = domain.fft(&f.coeffs);
             // test that witness_evals_inside works properly over the entire domain
@@ -366,9 +367,9 @@ mod tests {
         let runs = 10;
         for _ in 0..runs {
             // sample a random polynomial by sampling coefficients
-            let f = DensePolynomial::rand(domain.size()-1,&mut rng);
+            let f = DensePolynomial::rand(domain.size() - 1, &mut rng);
             // evaluate the polynomial on the domain
-            let evals : Vec<F> = domain.fft(&f.coeffs);
+            let evals: Vec<F> = domain.fft(&f.coeffs);
             // do a few tests with this polynomial
             for _ in 0..runs {
                 // sample a random point outside the domain
@@ -382,7 +383,13 @@ mod tests {
                 let witn_evals_expected = domain.fft(&witness_poly.coeffs);
                 // compare with what we get from our function
                 let mut witn_evals = Vec::new();
-                witness_evals_outside::<Bls12_381, D>(&domain, &evals, fz, &inv_diffs, &mut witn_evals);
+                witness_evals_outside::<Bls12_381, D>(
+                    &domain,
+                    &evals,
+                    fz,
+                    &inv_diffs,
+                    &mut witn_evals,
+                );
                 for i in 0..domain.size() {
                     assert_eq!(witn_evals[i], witn_evals_expected[i]);
                 }
@@ -415,7 +422,8 @@ mod tests {
                 let z = F::rand(&mut rng);
                 let expected: F = f.evaluate(&z);
                 let inv_diffs = inv_diffs::<Bls12_381, D>(&domain, z);
-                let obtained: F = evaluate_outside::<Bls12_381, D>(&domain, &evals.evals, z, &inv_diffs);
+                let obtained: F =
+                    evaluate_outside::<Bls12_381, D>(&domain, &evals.evals, z, &inv_diffs);
                 assert_eq!(obtained, expected);
             }
         }

@@ -20,11 +20,8 @@ TODO: Explain
 
 ### Implemented Lottery Schemes
 To evaluate Jackpot, we have implemented both Jackpot and the folklore lottery scheme using [arkworks](http://arkworks.rs/).
-More concretely, we provide the following implementations:
-
-- Jack: The Jackpot scheme. See type `ni_agg_lottery::lotteryscheme::jack::Jack`.
-- Jack-Pre: The Jackpot scheme with precomputed KZG openings (see [FK technique](https://eprint.iacr.org/2023/033.pdf)). Generating keys will take longer than for Jack, but participating in lotteries, i.e., computing winning tickets, is faster. See type `ni_agg_lottery::lotteryscheme::jack_pre::JackPre`.
-- BLS-H: The folklore lottery scheme based on BLS signatures.
+We also implemented the [FK technique](https://eprint.iacr.org/2023/033.pdf) for precomputing all tickets.
+This is optional and may be done in the background.
 
 ### Example of Usage
 The following code shows how to generate parameters, keys, participate in a lottery, and aggregate and verify tickets.
@@ -33,7 +30,6 @@ TODO
 
 ## Tests
 You can run all tests with `cargo test`.
-Be aware that this may take a while, due to costly parameter setup.
 
 ## Benchmarks
 You can run the benchmarks with `cargo bench`.

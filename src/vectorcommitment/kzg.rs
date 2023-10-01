@@ -19,7 +19,6 @@ mod kzg_utils;
 pub mod kzg_fk_open;
 pub use kzg_fk_open::all_openings;
 
-
 use self::kzg_fk_open::precompute_y;
 pub use self::kzg_types::Commitment;
 pub use self::kzg_types::CommitmentKey;
@@ -27,17 +26,16 @@ pub use self::kzg_types::Opening;
 pub use self::kzg_types::State;
 pub use self::kzg_types::VcKZG;
 
-
 use self::kzg_utils::evaluate_outside;
 use self::kzg_utils::find_in_domain;
-use self::kzg_utils::plain_kzg_com;
-use self::kzg_utils::witness_evals_outside;
 use self::kzg_utils::get_chi;
 use self::kzg_utils::get_z0;
 use self::kzg_utils::inv_diffs;
+use self::kzg_utils::plain_kzg_com;
 use self::kzg_utils::plain_kzg_verify;
 use self::kzg_utils::plain_kzg_verify_inside;
 use self::kzg_utils::witness_evals_inside;
+use self::kzg_utils::witness_evals_outside;
 
 use super::VectorCommitmentScheme;
 
@@ -119,8 +117,8 @@ impl<E: Pairing, D: EvaluationDomain<E::ScalarField>> VectorCommitmentScheme<E::
         }
 
         // precompute y and hat_y for FK algorithm
-        let y = precompute_y::<E,D>(&u, &domain);
-        let hat_y = precompute_y::<E,D>(&hat_u, &domain);
+        let y = precompute_y::<E, D>(&u, &domain);
+        let hat_y = precompute_y::<E, D>(&hat_u, &domain);
 
         // assemble commitment key
         let g2 = g2.into_affine();

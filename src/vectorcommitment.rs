@@ -52,7 +52,6 @@ pub trait VectorCommitmentScheme<F: Field> {
 // Test functions for this trait, which can
 // be used by implementors of this trait
 
-
 /// test that setup works
 fn _vc_test_setup<F: Field, VC: VectorCommitmentScheme<F>>() -> bool {
     let mut rng = ark_std::rand::thread_rng();
@@ -118,22 +117,22 @@ fn _vc_test_opening<F: Field, VC: VectorCommitmentScheme<F>>() -> bool {
 
             // open the commitment at every position and verify the opening
             for i in 0..message_length {
-                let op = VC::open(&ck, &st,i as u32);
+                let op = VC::open(&ck, &st, i as u32);
                 if let Some(op) = op {
                     // now verify
                     if !VC::verify(&ck, i as u32, &vec![m[i]], &vec![&com], &op) {
-                        return false
+                        return false;
                     }
                 } else {
-                    return false
+                    return false;
                 }
             }
 
             // make sure that opening outside of the range
             // does not give an opening
-            let op = VC::open(&ck, &st,message_length as u32);
+            let op = VC::open(&ck, &st, message_length as u32);
             if op.is_some() {
-                return false
+                return false;
             }
         }
     }
@@ -169,7 +168,7 @@ fn _vc_test_agg_opening<F: Field, VC: VectorCommitmentScheme<F>>() -> bool {
         for i in 0..message_length {
             let mut ops = Vec::new();
             for j in 0..numcoms {
-                let op = VC::open(&ck, &sts[j],i as u32).unwrap();
+                let op = VC::open(&ck, &sts[j], i as u32).unwrap();
                 ops.push(op);
             }
             // aggregate
@@ -183,14 +182,13 @@ fn _vc_test_agg_opening<F: Field, VC: VectorCommitmentScheme<F>>() -> bool {
             let op_agg = op_agg.unwrap();
             // verify
             if !VC::verify(&ck, i as u32, &mis, &coms_r, &op_agg) {
-                return false
+                return false;
             }
         }
     }
 
     true
 }
-
 
 // TODO: Some functions testing that playing around with commitments and message
 // makes ver output zero.

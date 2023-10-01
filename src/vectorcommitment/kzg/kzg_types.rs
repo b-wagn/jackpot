@@ -7,10 +7,7 @@ use std::marker::PhantomData;
 // This module contains types for the Simulation Extractable KZG Vector commitment
 
 /// Simulation-Extractable vector commitment based on KZG
-pub struct VcKZG<
-    E: Pairing,
-    D: EvaluationDomain<E::ScalarField>,
-> {
+pub struct VcKZG<E: Pairing, D: EvaluationDomain<E::ScalarField>> {
     _e: PhantomData<E>,
     _d: PhantomData<D>,
 }

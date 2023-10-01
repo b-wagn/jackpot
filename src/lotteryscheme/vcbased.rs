@@ -19,7 +19,7 @@ pub struct Parameters<F: Field, VC: VectorCommitmentScheme<F>> {
     pub ck: VC::CommitmentKey,
     pub num_lotteries: usize,
     pub k: u32,
-    pub log_k : u32,
+    pub log_k: u32,
 }
 pub struct PublicKey<F: Field, VC: VectorCommitmentScheme<F>> {
     pub com: VC::Commitment,
@@ -57,7 +57,7 @@ fn get_challenge<F: Field, VC: VectorCommitmentScheme<F>>(
     // for that, first find out how many bytes we use entirely
     assert!(log_k <= 32 * 8);
     let num_fullbytes = (log_k >> 3) as usize;
-    let mut hashbytes: Vec<u8> = vec![0x00;num_fullbytes+1];
+    let mut hashbytes: Vec<u8> = vec![0x00; num_fullbytes + 1];
     for j in 0..num_fullbytes {
         hashbytes[j] = digest[j];
     }
@@ -103,7 +103,7 @@ impl<F: Field, VC: VectorCommitmentScheme<F>> LotteryScheme for VCLotteryScheme<
             ck,
             num_lotteries,
             k,
-            log_k
+            log_k,
         })
     }
 
@@ -132,15 +132,22 @@ impl<F: Field, VC: VectorCommitmentScheme<F>> LotteryScheme for VCLotteryScheme<
         pid: u32,
         sk: &Self::SecretKey,
         pk: &Self::PublicKey,
-    ) -> Option<Self::Ticket> {
+    ) -> bool {
         // get a challenge
         let x = get_challenge(par.log_k, pk, pid, i, lseed);
         // we win if x = v_i
-        if i as usize > sk.v.len() || sk.v[i as usize] != x {
-            return None;
-        }
-        // if we win, we can get a winning ticket
-        // by opening our commitment
+        i as usize <= sk.v.len() && sk.v[i as usize] != x
+    }
+
+    fn get_ticket(
+        par: &Self::Parameters,
+        i: u32,
+        _lseed: &Self::LotterySeed,
+        _pid: u32,
+        sk: &Self::SecretKey,
+        _pk: &Self::PublicKey,
+    ) -> Option<Self::Ticket> {
+        // a ticket is just an opening of our commitment
         let op_tau = VC::open(&par.ck, &sk.state, i);
         op_tau.map(|tau| Ticket { opening: tau })
     }

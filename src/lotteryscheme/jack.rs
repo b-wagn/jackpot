@@ -4,7 +4,10 @@ use super::{
     vcbased::{Parameters, VCLotteryScheme},
     LotteryScheme,
 };
-use crate::vectorcommitment::{kzg::{VcKZG, all_openings}, VectorCommitmentScheme};
+use crate::vectorcommitment::{
+    kzg::{all_openings, VcKZG},
+    VectorCommitmentScheme,
+};
 use ark_bls12_381::Bls12_381;
 use ark_ec::pairing::Pairing;
 use ark_poly::Radix2EvaluationDomain;
@@ -38,7 +41,7 @@ pub fn get_jack_parameters<R: rand::Rng>(
             ck,
             num_lotteries,
             k,
-            log_k
+            log_k,
         };
         println!("[INFO] Found parameters in file.");
         return par;
@@ -57,9 +60,11 @@ pub fn get_jack_parameters<R: rand::Rng>(
     par
 }
 
-
 impl Jack {
-    pub fn fk_preprocess(par: &<Jack as LotteryScheme>::Parameters, sk : &mut <Jack as LotteryScheme>::SecretKey) {
+    pub fn fk_preprocess(
+        par: &<Jack as LotteryScheme>::Parameters,
+        sk: &mut <Jack as LotteryScheme>::SecretKey,
+    ) {
         all_openings(&par.ck, &mut sk.state);
     }
 }

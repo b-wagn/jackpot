@@ -6,21 +6,13 @@ use jackpot::lotteryscheme::{
 };
 
 
-// benchmark participate of jack and jackpre for 2^{ld}-2 lotteries
-fn participate_bench(c: &mut Criterion, ld: usize) {
+// benchmark participate of jack for 2^{ld}-2 lotteries
+fn bench(c: &mut Criterion, ld: usize) {
     let mut rng = ark_std::rand::thread_rng();
     let num_lotteries = (1 << ld) - 2;
     let k = 512;
-    // we reuse par for both Jack and JackPre to
-    // decrease waiting time for the user
     let par = get_jack_parameters(&mut rng, num_lotteries, k);
 
-    let mut rng = ark_std::rand::thread_rng();
-    let num_lotteries = (1 << ld) - 2;
-    let k = 512;
-    // we reuse par for both Jack and JackPre to
-    // decrease waiting time for the user
-    let par = get_jack_parameters(&mut rng, num_lotteries, k);
 
     // benchmark jack
     let label = format!("participate_jack_{}", ld);
@@ -31,11 +23,7 @@ fn participate_bench(c: &mut Criterion, ld: usize) {
 }
 
 pub fn participate_bench_small(c: &mut Criterion) {
-    participate_bench(c, 10);
-}
-pub fn participate_bench_medium(c: &mut Criterion) {
-    participate_bench(c, 15);
-}
-pub fn participate_bench_large(c: &mut Criterion) {
-    participate_bench(c, 20);
+    bench(c, 10);
+    bench(c, 15);
+    bench(c, 20);
 }

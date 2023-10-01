@@ -3,8 +3,8 @@ use std::ops::Mul;
 use super::LotteryScheme;
 use ark_bls12_381::g1::Config as G1Config;
 use ark_bls12_381::Bls12_381;
-use ark_ec::AffineRepr;
 use ark_ec::hashing::HashToCurve;
+use ark_ec::AffineRepr;
 use ark_ec::{
     hashing::{curve_maps::wb::WBMap, map_to_curve_hasher::MapToCurveBasedHasher},
     pairing::Pairing,
@@ -111,9 +111,9 @@ fn bls_batch_ver(g2: &G2Affine, pks: &[G2Affine], sigs: &[G1Affine], mes: &[u8; 
     // where chi is random and we use Horner's rule
     let mut rng = ark_std::rand::thread_rng();
     let chi = F::rand(&mut rng);
-    let mut aggsig = sigs[le-1].into_group();
-    let mut aggpk = pks[le-1].into_group();
-    for j in (0..=le-2).rev() {
+    let mut aggsig = sigs[le - 1].into_group();
+    let mut aggpk = pks[le - 1].into_group();
+    for j in (0..=le - 2).rev() {
         aggsig *= chi;
         aggpk *= chi;
         aggsig += sigs[j];
@@ -145,7 +145,7 @@ impl LotteryScheme for BLSHash {
     type Parameters = BLSParameters;
     type PublicKey = G2Affine;
     type SecretKey = F;
-    type Ticket = Vec::<G1Affine>; // trivial aggregation
+    type Ticket = Vec<G1Affine>; // trivial aggregation
     type LotterySeed = [u8; 32];
 
     fn setup<R: rand::Rng>(rng: &mut R, _num_lotteries: usize, k: u32) -> Option<Self::Parameters> {
@@ -181,6 +181,21 @@ impl LotteryScheme for BLSHash {
         par: &Self::Parameters,
         i: u32,
         lseed: &Self::LotterySeed,
+        pid: u32,
+        sk: &Self::SecretKey,
+        pk: &Self::PublicKey,
+    ) -> bool {
+        // compute the ticket. This does not panic.
+        let opt_ticket = Self::get_ticket(par, i, lseed, pid, sk, pk);
+        let sig = opt_ticket.unwrap()[0];
+        // check if it is winning.
+        winning_predicate(par.log_k, &sig)
+    }
+
+    fn get_ticket(
+        _par: &Self::Parameters,
+        i: u32,
+        lseed: &Self::LotterySeed,
         _pid: u32,
         sk: &Self::SecretKey,
         _pk: &Self::PublicKey,
@@ -188,11 +203,7 @@ impl LotteryScheme for BLSHash {
         // Compute a signature of (lseed,pid,i)
         let mes = assemble_message(i, lseed);
         let sig = bls_sign(sk, &mes);
-        // check if it is winning. if it is:
-        // output the signature as the ticket
-        if !winning_predicate(par.log_k, &sig) {
-            return None;
-        }
+        // The signature is the ticket
         Some(vec![sig])
     }
 
@@ -246,7 +257,10 @@ impl LotteryScheme for BLSHash {
 mod tests {
     use ark_ec::AffineRepr;
 
-    use crate::lotteryscheme::{bls_hash::{bls_ver, bls_batch_ver}, LotteryScheme};
+    use crate::lotteryscheme::{
+        bls_hash::{bls_batch_ver, bls_ver},
+        LotteryScheme,
+    };
 
     use super::{bls_sign, BLSHash};
 
@@ -275,25 +289,25 @@ mod tests {
         let runs = 5;
         let numkeys = 20;
         for _ in 0..runs {
-                // generate parameters and some keys
-                let par = BLSHash::setup(&mut rng, 1024, 1024).unwrap();
-                let mut pks = Vec::new();
-                let mut sks = Vec::new();
-                for _ in 0..numkeys {
-                    let (pk, sk) = BLSHash::gen(&mut rng, &par);
-                    pks.push(pk);
-                    sks.push(sk);
-                }
-
-                // sign a message with all keys
-                let mes = [0x08; 36];
-                let mut sigs = Vec::new();
-                for j in 0..numkeys {
-                    let sig = bls_sign(&sks[j], &mes);
-                    sigs.push(sig);
-                }
-                // assert that they batch verify
-                assert!(bls_batch_ver(&par.g2, &pks, &sigs, &mes));
+            // generate parameters and some keys
+            let par = BLSHash::setup(&mut rng, 1024, 1024).unwrap();
+            let mut pks = Vec::new();
+            let mut sks = Vec::new();
+            for _ in 0..numkeys {
+                let (pk, sk) = BLSHash::gen(&mut rng, &par);
+                pks.push(pk);
+                sks.push(sk);
             }
+
+            // sign a message with all keys
+            let mes = [0x08; 36];
+            let mut sigs = Vec::new();
+            for j in 0..numkeys {
+                let sig = bls_sign(&sks[j], &mes);
+                sigs.push(sig);
+            }
+            // assert that they batch verify
+            assert!(bls_batch_ver(&par.g2, &pks, &sigs, &mes));
+        }
     }
 }

@@ -1,15 +1,15 @@
 use ark_std::rand::Rng;
 
-/// This module contains a generic lottery scheme
-/// based on a given vector commitment scheme
-pub mod vcbased;
+/// This module contains the folklore BLS+Hash
+/// lottery scheme. That is, one wins if H(sig) < T
+pub mod bls_hash;
 /// This module contains Jack, the lottery scheme
 /// based on the simulation-extractable KZG variant
 /// instantiated using curve Bls12_381
 pub mod jack;
-/// This module contains the folklore BLS+Hash
-/// lottery scheme. That is, one wins if H(sig) < T
-pub mod bls_hash;
+/// This module contains a generic lottery scheme
+/// based on a given vector commitment scheme
+pub mod vcbased;
 
 /// A trait that models a lottery scheme
 pub trait LotteryScheme {
@@ -29,8 +29,23 @@ pub trait LotteryScheme {
     /// Verify the well-formedness of a public key
     fn verify_key(par: &Self::Parameters, pk: &Self::PublicKey) -> bool;
 
-    /// Participant with identifier pid participates in the ith lottery.
+    /// Participant with identifier pid, secret key sk, and public key pk
+    /// participates in the ith lottery wiht seed lseed.
+    /// This algorithm outputs true if the player won, and false otherwise
     fn participate(
+        par: &Self::Parameters,
+        i: u32,
+        lseed: &Self::LotterySeed,
+        pid: u32,
+        sk: &Self::SecretKey,
+        pk: &Self::PublicKey,
+    ) -> bool;
+
+    /// Participant with identifier pid, secret key sk, and public key pk
+    /// participates in the ith lottery with seed lseed.
+    /// This algorithm generates a (winning) ticket if the participate won.
+    /// Otherwise, it may output None, or a non-winning ticket.
+    fn get_ticket(
         par: &Self::Parameters,
         i: u32,
         lseed: &Self::LotterySeed,

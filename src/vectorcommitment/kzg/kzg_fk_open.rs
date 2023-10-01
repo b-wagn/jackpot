@@ -11,7 +11,6 @@ use super::{CommitmentKey, State};
 // fast amortized way following the FK technique:
 // https://eprint.iacr.org/2023/033.pdf
 
-
 /// Compute the vector y = DFT(hat_s) used for fast amortized
 /// computation of all KZG openings. It is independent of the
 /// committed vector and can therefore be computed once from
@@ -36,7 +35,6 @@ pub fn precompute_y<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     let y = domain2.fft(&hat_s);
     E::G1::normalize_batch(&y)
 }
-
 
 /// function to precompute all openings using the FK technique
 pub fn all_openings<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
@@ -78,7 +76,6 @@ fn all_openings_single<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     domain.fft_in_place(&mut h);
     h
 }
-
 
 /// compute the polynomial h (in exponent) from the paper (see Proposition 1)
 /// The polynomial f is given by domain.size() many coefficients, and we have
@@ -164,7 +161,7 @@ mod tests {
     use crate::vectorcommitment::kzg::VcKZG;
     use crate::vectorcommitment::VectorCommitmentScheme;
 
-    use super::{base_poly, all_openings, all_openings_single};
+    use super::{all_openings, all_openings_single, base_poly};
 
     type F = <Bls12_381 as Pairing>::ScalarField;
     type D = Radix2EvaluationDomain<F>;

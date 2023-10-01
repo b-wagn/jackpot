@@ -1,15 +1,14 @@
 use criterion::{criterion_group, criterion_main};
-use keygen_bench::{keygen_bench_large, keygen_bench_medium, keygen_bench_small};
-use participate_bench::{participate_bench_large, participate_bench_small};
+use crate::preprocess_bench::preprocess_bench;
 
 mod keygen_bench;
+mod preprocess_bench;
 mod participate_bench;
 mod aggregate_bench;
 mod verify_bench;
 
 criterion_group!(
     benches,
-    participate_bench_small,
-    participate_bench_large
+    preprocess_bench
 );
 criterion_main!(benches);
