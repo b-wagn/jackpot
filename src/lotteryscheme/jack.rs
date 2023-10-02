@@ -68,3 +68,20 @@ impl Jack {
         all_openings(&par.ck, &mut sk.state);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::lotteryscheme::{_lottery_test_always_winning, _lottery_test_key_verify};
+
+    use super::Jack;
+
+    #[test]
+    fn jack_lottery_test_key_verify() {
+        _lottery_test_key_verify::<Jack>();
+    }
+
+    #[test]
+    fn jack_lottery_test_always_winning() {
+        _lottery_test_always_winning::<Jack>();
+    }
+}

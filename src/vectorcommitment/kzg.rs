@@ -395,20 +395,20 @@ mod tests {
 
     #[test]
     fn kzg_vc_test_setup() {
-        assert!(_vc_test_setup::<F, VC>());
+        _vc_test_setup::<F, VC>();
     }
     #[test]
     fn kzg_vc_test_com_ver() {
-        assert!(_vc_test_com_ver::<F, VC>());
+        _vc_test_com_ver::<F, VC>();
     }
 
     #[test]
     fn kzg_vc_test_opening() {
-        assert!(_vc_test_opening::<F, VC>());
+        _vc_test_opening::<F, VC>();
     }
 
     #[test]
     fn kzg_vc_test_agg_opening() {
-        assert!(_vc_test_agg_opening::<F, VC>());
+        _vc_test_agg_opening::<F, VC>();
     }
 }

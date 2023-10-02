@@ -1,3 +1,5 @@
+use std::vec;
+
 use ark_std::rand::Rng;
 
 /// This module contains the folklore BLS+Hash
@@ -28,6 +30,11 @@ pub trait LotteryScheme {
 
     /// Verify the well-formedness of a public key
     fn verify_key(par: &Self::Parameters, pk: &Self::PublicKey) -> bool;
+
+    /// Sample a lottery seed for the ith lottery.
+    /// In practice, this should most likely be
+    /// implemented by a randomness beacon
+    fn sample_seed<R: Rng>(rng: &mut R, par: &Self::Parameters, i: u32) -> Self::LotterySeed;
 
     /// Participant with identifier pid, secret key sk, and public key pk
     /// participates in the ith lottery wiht seed lseed.
@@ -75,4 +82,71 @@ pub trait LotteryScheme {
         pks: &Vec<Self::PublicKey>,
         ticket: &Self::Ticket,
     ) -> bool;
+}
+
+// Test functions for this trait, which can
+// be used by implementors of this trait
+
+/// test that if we generate keys honestly, they verify
+fn _lottery_test_key_verify<L: LotteryScheme>() {
+    let mut rng = ark_std::rand::thread_rng();
+    let runs = 10;
+
+    for _ in 0..runs {
+        // set up parameters for a lottery
+        // for which everyone wins with probability 1
+        let num_lotteries = 14;
+        let k = 512;
+        let par = L::setup(&mut rng, num_lotteries, k).unwrap();
+        // generate a key pair
+        let (pk, _sk) = L::gen(&mut rng, &par);
+        // assert that the pk verifies
+        assert!(L::verify_key(&par, &pk));
+    }
+}
+
+/// test that if we set winning probability to 1/k = 1/1 = 1,
+/// then every ticket is winning
+fn _lottery_test_always_winning<L: LotteryScheme>() {
+    let mut rng = ark_std::rand::thread_rng();
+    let runs = 5;
+
+    for _ in 0..runs {
+        // set up parameters for a lottery
+        // for which everyone wins with probability 1
+        let num_lotteries = 14;
+        let k = 1;
+        let par = L::setup(&mut rng, num_lotteries, k).unwrap();
+        // generate key pairs for two users
+        let (pk0, sk0) = L::gen(&mut rng, &par);
+        let (pk1, sk1) = L::gen(&mut rng, &par);
+        let sks = vec![sk0, sk1];
+        let pks = vec![pk0, pk1];
+        let pids = vec![0, 1];
+        // do the lotteries
+        for i in 0..num_lotteries {
+            // participate should output true
+            // for any lottery seed, as both users win with prob 1
+            let lseed = L::sample_seed(&mut rng, &par, i as u32);
+            assert!(L::participate(
+                &par, i as u32, &lseed, pids[0], &sks[0], &pks[0]
+            ));
+            assert!(L::participate(
+                &par, i as u32, &lseed, pids[1], &sks[1], &pks[1]
+            ));
+            // now that both won, we let them generate their tickets
+            let ticket1 = L::get_ticket(&par, i as u32, &lseed, pids[0], &sks[0], &pks[0]);
+            let ticket2 = L::get_ticket(&par, i as u32, &lseed, pids[1], &sks[1], &pks[1]);
+            assert!(ticket1.is_some());
+            assert!(ticket2.is_some());
+            let ticket1 = ticket1.unwrap();
+            let ticket2 = ticket2.unwrap();
+            // we aggregate the tickets
+            let ticket = L::aggregate(&par, i as u32, &lseed, &pids, &pks, &vec![ticket1, ticket2]);
+            assert!(ticket.is_some());
+            let ticket = ticket.unwrap();
+            // the aggregated ticket should verify
+            assert!(L::verify(&par, i as u32, &lseed, &pids, &pks, &ticket));
+        }
+    }
 }

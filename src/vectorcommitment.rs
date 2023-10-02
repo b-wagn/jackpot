@@ -53,7 +53,7 @@ pub trait VectorCommitmentScheme<F: Field> {
 // be used by implementors of this trait
 
 /// test that setup works
-fn _vc_test_setup<F: Field, VC: VectorCommitmentScheme<F>>() -> bool {
+fn _vc_test_setup<F: Field, VC: VectorCommitmentScheme<F>>() {
     let mut rng = ark_std::rand::thread_rng();
 
     // we test for a bunch of message lengths
@@ -61,15 +61,12 @@ fn _vc_test_setup<F: Field, VC: VectorCommitmentScheme<F>>() -> bool {
     for message_length in lrange {
         // setup commitment key
         let ck = VC::setup(&mut rng, message_length);
-        if ck.is_none() {
-            return false;
-        }
+        assert!(ck.is_some());
     }
-    true
 }
 
 /// test that honestly committing yields a valid commitment
-fn _vc_test_com_ver<F: Field, VC: VectorCommitmentScheme<F>>() -> bool {
+fn _vc_test_com_ver<F: Field, VC: VectorCommitmentScheme<F>>() {
     let mut rng = ark_std::rand::thread_rng();
 
     // we test for a bunch of message lengths
@@ -77,7 +74,6 @@ fn _vc_test_com_ver<F: Field, VC: VectorCommitmentScheme<F>>() -> bool {
     for message_length in lrange {
         // setup commitment key
         let ck = VC::setup(&mut rng, message_length).unwrap();
-
         // commit to a bunch of vectors, and then
         // check for each of them that com verifies
         let crange = 0..5;
@@ -86,18 +82,14 @@ fn _vc_test_com_ver<F: Field, VC: VectorCommitmentScheme<F>>() -> bool {
             let m: Vec<F> = (0..message_length).map(|_| F::rand(&mut rng)).collect();
             // commit to it
             let (com, _) = VC::commit(&mut rng, &ck, &m);
-
             // verify the commitment
-            if !VC::verify_commitment(&ck, &com) {
-                return false;
-            }
+            assert!(VC::verify_commitment(&ck, &com));
         }
     }
-    true
 }
 
 /// test that honestly committing and opening makes ver accept
-fn _vc_test_opening<F: Field, VC: VectorCommitmentScheme<F>>() -> bool {
+fn _vc_test_opening<F: Field, VC: VectorCommitmentScheme<F>>() {
     let mut rng = ark_std::rand::thread_rng();
 
     // we test for a bunch of message lengths
@@ -118,29 +110,22 @@ fn _vc_test_opening<F: Field, VC: VectorCommitmentScheme<F>>() -> bool {
             // open the commitment at every position and verify the opening
             for i in 0..message_length {
                 let op = VC::open(&ck, &st, i as u32);
-                if let Some(op) = op {
-                    // now verify
-                    if !VC::verify(&ck, i as u32, &vec![m[i]], &vec![&com], &op) {
-                        return false;
-                    }
-                } else {
-                    return false;
-                }
+                assert!(op.is_some());
+                let op = op.unwrap();
+                // now verify
+                assert!(VC::verify(&ck, i as u32, &vec![m[i]], &vec![&com], &op));
             }
 
             // make sure that opening outside of the range
             // does not give an opening
             let op = VC::open(&ck, &st, message_length as u32);
-            if op.is_some() {
-                return false;
-            }
+            assert!(op.is_none());
         }
     }
-    true
 }
 
 /// test that honestly committing, opening, and aggregating makes ver accept
-fn _vc_test_agg_opening<F: Field, VC: VectorCommitmentScheme<F>>() -> bool {
+fn _vc_test_agg_opening<F: Field, VC: VectorCommitmentScheme<F>>() {
     let mut rng = ark_std::rand::thread_rng();
 
     // we test for a bunch of message lengths
@@ -176,19 +161,10 @@ fn _vc_test_agg_opening<F: Field, VC: VectorCommitmentScheme<F>>() -> bool {
             let coms_r = (0..numcoms).map(|j| &coms[j]).collect();
             let ops_r = (0..numcoms).map(|j| &ops[j]).collect();
             let op_agg = VC::aggregate(&ck, i as u32, &mis, &coms_r, &ops_r);
-            if op_agg.is_none() {
-                return false;
-            }
+            assert!(op_agg.is_some());
             let op_agg = op_agg.unwrap();
             // verify
-            if !VC::verify(&ck, i as u32, &mis, &coms_r, &op_agg) {
-                return false;
-            }
+            assert!(VC::verify(&ck, i as u32, &mis, &coms_r, &op_agg));
         }
     }
-
-    true
 }
-
-// TODO: Some functions testing that playing around with commitments and message
-// makes ver output zero.

@@ -125,6 +125,12 @@ impl<F: Field, VC: VectorCommitmentScheme<F>> LotteryScheme for VCLotteryScheme<
         VC::verify_commitment(&par.ck, &pk.com)
     }
 
+    fn sample_seed<R: rand::Rng>(rng: &mut R, _par: &Self::Parameters, _i: u32) -> Self::LotterySeed {
+        let mut res = [0x00; 32];
+        rng.fill_bytes(&mut res);
+        res
+    }
+
     fn participate(
         par: &Self::Parameters,
         i: u32,
@@ -136,7 +142,7 @@ impl<F: Field, VC: VectorCommitmentScheme<F>> LotteryScheme for VCLotteryScheme<
         // get a challenge
         let x = get_challenge(par.log_k, pk, pid, i, lseed);
         // we win if x = v_i
-        i as usize <= sk.v.len() && sk.v[i as usize] != x
+        i as usize <= sk.v.len() && sk.v[i as usize] == x
     }
 
     fn get_ticket(

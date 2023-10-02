@@ -177,6 +177,12 @@ impl LotteryScheme for BLSHash {
         true
     }
 
+    fn sample_seed<R: rand::Rng>(rng: &mut R, _par: &Self::Parameters, _i: u32) -> Self::LotterySeed {
+        let mut res = [0x00;32];
+        rng.fill_bytes(&mut res);
+        res
+    }
+
     fn participate(
         par: &Self::Parameters,
         i: u32,
@@ -259,7 +265,7 @@ mod tests {
 
     use crate::lotteryscheme::{
         bls_hash::{bls_batch_ver, bls_ver},
-        LotteryScheme,
+        LotteryScheme, _lottery_test_key_verify, _lottery_test_always_winning,
     };
 
     use super::{bls_sign, BLSHash};
@@ -309,5 +315,15 @@ mod tests {
             // assert that they batch verify
             assert!(bls_batch_ver(&par.g2, &pks, &sigs, &mes));
         }
+    }
+
+    #[test]
+    fn blshash_lottery_test_key_verify() {
+        _lottery_test_key_verify::<BLSHash>();
+    }
+
+    #[test]
+    fn blshash_lottery_test_always_winning() {
+        _lottery_test_always_winning::<BLSHash>();
     }
 }
