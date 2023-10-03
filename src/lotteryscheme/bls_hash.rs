@@ -113,11 +113,13 @@ fn bls_batch_ver(g2: &G2Affine, pks: &[G2Affine], sigs: &[G1Affine], mes: &[u8; 
     let chi = F::rand(&mut rng);
     let mut aggsig = sigs[le - 1].into_group();
     let mut aggpk = pks[le - 1].into_group();
-    for j in (0..=le - 2).rev() {
-        aggsig *= chi;
-        aggpk *= chi;
-        aggsig += sigs[j];
-        aggpk += pks[j];
+    if le >= 2 {
+        for j in (0..=le - 2).rev() {
+            aggsig *= chi;
+            aggpk *= chi;
+            aggsig += sigs[j];
+            aggpk += pks[j];
+        }
     }
     bls_ver(g2, &aggpk, &aggsig, mes)
 }

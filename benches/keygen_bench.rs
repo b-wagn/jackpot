@@ -1,12 +1,11 @@
-use criterion::{Criterion, black_box};
+use criterion::{black_box, Criterion};
 
 use jackpot::lotteryscheme::{
     jack::{get_jack_parameters, Jack},
     LotteryScheme,
 };
 
-
-// benchmark keygen of jack for 2^{ld}-2 lotteries
+/// benchmark keygen of jack for 2^{ld}-2 lotteries
 fn bench(c: &mut Criterion, ld: usize) {
     let mut rng = ark_std::rand::thread_rng();
     let num_lotteries = (1 << ld) - 2;
@@ -22,6 +21,7 @@ fn bench(c: &mut Criterion, ld: usize) {
     });
 }
 
+/// benchmark keygen of jack
 pub fn keygen_bench(c: &mut Criterion) {
     bench(c, 10);
     bench(c, 15);

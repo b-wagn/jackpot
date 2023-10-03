@@ -253,11 +253,13 @@ impl<E: Pairing, D: EvaluationDomain<E::ScalarField>> VectorCommitmentScheme<E::
         // using Horner's rule
         let mut hat_y = openings[le - 1].hat_y;
         let mut v = openings[le - 1].v.into_group();
-        for j in (0..=le - 2).rev() {
-            hat_y *= chi;
-            v *= chi;
-            hat_y += openings[j].hat_y;
-            v += openings[j].v.into_group();
+        if le >= 2 {
+            for j in (0..=le - 2).rev() {
+                hat_y *= chi;
+                v *= chi;
+                hat_y += openings[j].hat_y;
+                v += openings[j].v.into_group();
+            }
         }
         let v = v.into_affine();
         Some(Opening { hat_y, v })

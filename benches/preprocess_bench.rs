@@ -5,7 +5,7 @@ use jackpot::lotteryscheme::{
     LotteryScheme,
 };
 
-// benchmark preprocessing of jack for 2^{ld}-2 lotteries
+/// benchmark preprocessing of jack for 2^{ld}-2 lotteries
 fn bench(c: &mut Criterion, ld: usize) {
     let mut rng = ark_std::rand::thread_rng();
     let num_lotteries = (1 << ld) - 2;
@@ -22,6 +22,7 @@ fn bench(c: &mut Criterion, ld: usize) {
     });
 }
 
+/// benchmark preprocessing of jack
 pub fn preprocess_bench(c: &mut Criterion) {
     bench(c, 10);
     bench(c, 15);
