@@ -1,4 +1,4 @@
-use criterion::{black_box, Criterion};
+use criterion::{black_box, measurement::Measurement, BenchmarkGroup, Criterion};
 
 use jackpot::lotteryscheme::{
     jack::{get_jack_parameters, Jack},
@@ -6,7 +6,7 @@ use jackpot::lotteryscheme::{
 };
 
 /// benchmark keygen of jack for 2^{ld}-2 lotteries
-fn bench(c: &mut Criterion, ld: usize) {
+fn bench<'a, M: Measurement>(c: &mut BenchmarkGroup<'a, M>, ld: usize) {
     let mut rng = ark_std::rand::thread_rng();
     let num_lotteries = (1 << ld) - 2;
     let k = 512;
@@ -23,7 +23,9 @@ fn bench(c: &mut Criterion, ld: usize) {
 
 /// benchmark keygen of jack
 pub fn keygen_bench(c: &mut Criterion) {
-    bench(c, 10);
-    bench(c, 15);
-    bench(c, 20);
+    let mut group: BenchmarkGroup<'_, criterion::measurement::WallTime> = c.benchmark_group("keygen");
+    bench(&mut group, 10);
+    bench(&mut group, 15);
+    bench(&mut group, 20);
+    group.finish();
 }

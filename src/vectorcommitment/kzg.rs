@@ -251,6 +251,7 @@ impl<E: Pairing, D: EvaluationDomain<E::ScalarField>> VectorCommitmentScheme<E::
         // hat_y = sum_{j=1}^L hat_yj * chi^{j-1}
         // v = prod_{j=1}^L vj^{chi^{j-1}}
         // using Horner's rule
+        // TODO: This could be faster with a MSM
         let mut hat_y = openings[le - 1].hat_y;
         let mut v = openings[le - 1].v.into_group();
         if le >= 2 {
@@ -284,6 +285,7 @@ impl<E: Pairing, D: EvaluationDomain<E::ScalarField>> VectorCommitmentScheme<E::
         // mi = sum_{j=1}^L mij * chi^{j-1}
         // com = prod_{j=1}^L comj^{chi^{j-1}}
         // using Horner's rule
+        // TODO: This could be faster with a MSM
         let mut mi = mis[le - 1];
         let mut com = coms[le - 1].com_kzg.into_group();
         if le >= 2 {

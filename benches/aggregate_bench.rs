@@ -1,4 +1,4 @@
-use criterion::{black_box, Criterion};
+use criterion::{black_box, measurement::Measurement, BenchmarkGroup, Criterion};
 
 use jackpot::lotteryscheme::{
     jack::{get_jack_parameters, Jack},
@@ -6,7 +6,7 @@ use jackpot::lotteryscheme::{
 };
 
 /// benchmark aggregation of Jack for 2^log_num_tickets many tickets
-fn bench(c: &mut Criterion, log_num_tickets: usize) {
+fn bench<'a, M: Measurement>(c: &mut BenchmarkGroup<'a, M>, log_num_tickets: usize) {
     let mut rng = ark_std::rand::thread_rng();
     // number of lotteries should have no impact
     // on the running time of aggregate. To make sure
@@ -50,12 +50,12 @@ fn bench(c: &mut Criterion, log_num_tickets: usize) {
         // Actual Benchmark: Measure running time of aggregation
         b.iter(|| {
             <Jack as LotteryScheme>::aggregate(
-                &par,
+                black_box(&par),
                 black_box(i),
                 black_box(&lseed),
-                &pids,
-                &pks,
-                &tickets,
+                black_box(&pids),
+                black_box(&pks),
+                black_box(&tickets),
             );
         });
     });
@@ -63,9 +63,11 @@ fn bench(c: &mut Criterion, log_num_tickets: usize) {
 
 /// benchmark aggregation of Jack
 pub fn aggregate_bench(c: &mut Criterion) {
-    bench(c, 0);
-    bench(c, 4);
-    bench(c, 8);
-    bench(c, 10);
-    bench(c, 11);
+    let mut group = c.benchmark_group("aggregate");
+    // bench(c, 0);
+    // bench(c, 4);
+    bench(&mut group, 8);
+    // bench(c, 10);
+    // bench(c, 11);
+    group.finish();
 }

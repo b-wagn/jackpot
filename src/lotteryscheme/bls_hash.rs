@@ -4,10 +4,10 @@ use super::LotteryScheme;
 use ark_bls12_381::g1::Config as G1Config;
 use ark_bls12_381::Bls12_381;
 use ark_ec::hashing::HashToCurve;
+use ark_ec::pairing::Pairing;
 use ark_ec::AffineRepr;
 use ark_ec::{
     hashing::{curve_maps::wb::WBMap, map_to_curve_hasher::MapToCurveBasedHasher},
-    pairing::Pairing,
     CurveGroup,
 };
 use ark_ff::field_hashers::DefaultFieldHasher;
@@ -27,6 +27,8 @@ type G1 = <Bls12_381 as Pairing>::G1;
 type G2 = <Bls12_381 as Pairing>::G2;
 type G1Affine = <Bls12_381 as Pairing>::G1Affine;
 type G2Affine = <Bls12_381 as Pairing>::G2Affine;
+type G1Prepared = <Bls12_381 as Pairing>::G1Prepared;
+type G2Prepared = <Bls12_381 as Pairing>::G2Prepared;
 type F = <Bls12_381 as Pairing>::ScalarField;
 
 pub struct BLSParameters {
@@ -87,9 +89,15 @@ fn bls_ver(g2: &G2Affine, pk: &G2, sig: &G1, mes: &[u8; 36]) -> bool {
     // we let h = H(m)
     let h = hash_to_group(mes);
     // check e(sig, g2) = e(h,pk)
-    let lhs = Bls12_381::pairing(sig, g2);
-    let rhs = Bls12_381::pairing(h, pk);
-    lhs == rhs
+    // Naive implementation would do:
+    //  let lhs = Bls12_381::pairing(sig, g2);
+    //  let rhs = Bls12_381::pairing(h, pk);
+    //  lhs == rhs
+    // But we can do it faster:
+    let left = vec![G1Prepared::from(sig), G1Prepared::from(-h)];
+    let right = vec![G2Prepared::from(g2), G2Prepared::from(pk)];
+    let q = Bls12_381::multi_pairing(left, right);
+    q.is_zero()
 }
 
 /// verifies a bunch of BLS signatures for the same message
@@ -109,6 +117,7 @@ fn bls_batch_ver(g2: &G2Affine, pks: &[G2Affine], sigs: &[G1Affine], mes: &[u8; 
     // for aggsig = prod_i sig_i^{chi^{i-1}}
     // and aggpk  = prod_i  pk_i^{chi^{i-1}}
     // where chi is random and we use Horner's rule
+    // TODO: This could be faster with a MSM
     let mut rng = ark_std::rand::thread_rng();
     let chi = F::rand(&mut rng);
     let mut aggsig = sigs[le - 1].into_group();
@@ -179,8 +188,12 @@ impl LotteryScheme for BLSHash {
         true
     }
 
-    fn sample_seed<R: rand::Rng>(rng: &mut R, _par: &Self::Parameters, _i: u32) -> Self::LotterySeed {
-        let mut res = [0x00;32];
+    fn sample_seed<R: rand::Rng>(
+        rng: &mut R,
+        _par: &Self::Parameters,
+        _i: u32,
+    ) -> Self::LotterySeed {
+        let mut res = [0x00; 32];
         rng.fill_bytes(&mut res);
         res
     }
@@ -263,14 +276,18 @@ impl LotteryScheme for BLSHash {
 
 #[cfg(test)]
 mod tests {
-    use ark_ec::AffineRepr;
+    use ark_bls12_381::Bls12_381;
+    use ark_ec::{pairing::Pairing, AffineRepr};
+    use ark_std::UniformRand;
 
     use crate::lotteryscheme::{
         bls_hash::{bls_batch_ver, bls_ver},
-        LotteryScheme, _lottery_test_key_verify, _lottery_test_always_winning,
+        LotteryScheme, _lottery_test_always_winning, _lottery_test_key_verify,
     };
 
     use super::{bls_sign, BLSHash};
+
+    type G1 = <Bls12_381 as Pairing>::G1;
 
     /// test that an honest BLS signature verifies
     #[test]
@@ -285,8 +302,12 @@ mod tests {
             // sign a message
             let mes = [0x08; 36];
             let sig = bls_sign(&sk, &mes);
+            //let sig = <Bls12<ark_bls12_381::Config> as Pairing>::G1Affine::rand(&mut rng);
             // assert that it verifies
             assert!(bls_ver(&par.g2, &pk.into_group(), &sig.into_group(), &mes));
+            // random element should not verify
+            let sig = G1::rand(&mut rng);
+            assert!(!bls_ver(&par.g2, &pk.into_group(), &sig, &mes));
         }
     }
 

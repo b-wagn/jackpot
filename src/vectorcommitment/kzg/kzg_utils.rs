@@ -93,10 +93,16 @@ pub fn plain_kzg_verify<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     let mut lhs_left = com_kzg.into_group();
     lhs_left -= ck.u[0].mul(y);
     lhs_left -= ck.hat_u[0].mul(tau.hat_y);
-    let lhs = E::pairing(lhs_left, ck.g2);
     let rhs_right = ck.r.into_group() - ck.g2.mul(z);
-    let rhs = E::pairing(tau.v, rhs_right);
-    lhs == rhs
+    // Naive Implementation:
+    //  let lhs = E::pairing(lhs_left, ck.g2);
+    //  let rhs = E::pairing(tau.v, rhs_right);
+    //  lhs == rhs
+    // We can do it slightly faster:
+    let left = vec![E::G1Prepared::from(-lhs_left),E::G1Prepared::from(tau.v)];
+    let right = vec![E::G2Prepared::from(ck.g2),E::G2Prepared::from(rhs_right)];
+    let q = E::multi_pairing(left, right);
+    q.is_zero()
 }
 
 /// Standard KZG verification. Verifies that f(z) = y,
@@ -113,9 +119,15 @@ pub fn plain_kzg_verify_inside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     let mut lhs_left = com_kzg.into_group();
     lhs_left -= ck.u[0].mul(y);
     lhs_left -= ck.hat_u[0].mul(tau.hat_y);
-    let lhs = E::pairing(lhs_left, ck.g2);
-    let rhs = E::pairing(tau.v, ck.d[i]);
-    lhs == rhs
+    // Naive Implementation:
+    //  let lhs = E::pairing(lhs_left, ck.g2);
+    //  let rhs = E::pairing(tau.v, ck.d[i]);
+    //  lhs == rhs
+    // We can do it slightly faster:
+    let left = vec![E::G1Prepared::from(-lhs_left),E::G1Prepared::from(tau.v)];
+    let right = vec![E::G2Prepared::from(ck.g2),E::G2Prepared::from(ck.d[i])];
+    let q = E::multi_pairing(left, right);
+    q.is_zero()
 }
 
 /// Compute a KZG commitment for the given vector of evaluations

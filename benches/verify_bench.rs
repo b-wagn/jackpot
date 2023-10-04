@@ -1,4 +1,4 @@
-use criterion::{black_box, Criterion};
+use criterion::{black_box, measurement::Measurement, BenchmarkGroup, Criterion};
 
 use jackpot::lotteryscheme::{
     bls_hash::BLSHash,
@@ -7,7 +7,7 @@ use jackpot::lotteryscheme::{
 };
 
 /// benchmark verification of Jack for 2^log_num_tickets many tickets
-fn bench_jack(c: &mut Criterion, log_num_tickets: usize) {
+fn bench_jack<'a, M: Measurement>(c: &mut BenchmarkGroup<'a, M>, log_num_tickets: usize) {
     let mut rng = ark_std::rand::thread_rng();
     // number of lotteries should have no impact
     // on the running time of verify. To make sure
@@ -56,19 +56,19 @@ fn bench_jack(c: &mut Criterion, log_num_tickets: usize) {
         // Actual Benchmark: Measure running time of verification
         b.iter(|| {
             <Jack as LotteryScheme>::verify(
-                &par,
+                black_box(&par),
                 black_box(i),
                 black_box(&lseed),
-                &pids,
-                &pks,
-                &ticket,
+                black_box(&pids),
+                black_box(&pks),
+                black_box(&ticket),
             )
         });
     });
 }
 
 /// benchmark verification of BLS+Hash for 2^log_num_tickets many tickets
-fn bench_blshash(c: &mut Criterion, log_num_tickets: usize) {
+fn bench_blshash<'a, M: Measurement>(c: &mut BenchmarkGroup<'a, M>, log_num_tickets: usize) {
     let mut rng = ark_std::rand::thread_rng();
     // number of lotteries should have no impact
     // on the running time of verify. To make sure
@@ -118,9 +118,9 @@ fn bench_blshash(c: &mut Criterion, log_num_tickets: usize) {
                 &par,
                 black_box(i),
                 black_box(&lseed),
-                &pids,
-                &pks,
-                &ticket,
+                black_box(&pids),
+                black_box(&pks),
+                black_box(&ticket),
             )
         });
     });
@@ -128,15 +128,19 @@ fn bench_blshash(c: &mut Criterion, log_num_tickets: usize) {
 
 /// benchmark aggregation of Jack and BLS+Hash
 pub fn verify_bench(c: &mut Criterion) {
-    bench_jack(c, 0);
-    bench_jack(c, 4);
-    bench_jack(c, 8);
-    bench_jack(c, 10);
-    bench_jack(c, 11);
+    let mut group = c.benchmark_group("verify");
 
-    bench_blshash(c, 0);
-    bench_blshash(c, 4);
-    bench_blshash(c, 8);
-    bench_blshash(c, 10);
-    bench_blshash(c, 11);
+    // bench_jack(&mut group, 0);
+    // bench_jack(&mut group, 4);
+    bench_jack(&mut group, 8);
+    bench_jack(&mut group, 10);
+    // bench_jack(&mut group, 11);
+
+    // bench_blshash(&mut group, 0);
+    // bench_blshash(&mut group, 4);
+    // bench_blshash(&mut group, 8);
+    // bench_blshash(&mut group, 10);
+    // bench_blshash(&mut group, 11);
+
+    group.finish();
 }
