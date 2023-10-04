@@ -16,11 +16,11 @@ mod verify_bench;
 
 criterion_group!(
     benches,
-    // aggregate_bench,
+    aggregate_bench,
     verify_bench,
-    // keygen_bench,
-    // participate_bench,
-    // get_ticket_bench,
-    // preprocess_bench,
+    keygen_bench,
+    participate_bench,
+    get_ticket_bench,
+    preprocess_bench,
 );
 criterion_main!(benches);

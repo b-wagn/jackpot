@@ -2,7 +2,7 @@
 
 Implementation of the Jackpot lottery scheme in Rust using [arkworks](http://arkworks.rs/).
 
-Disclaimer: This implementation is prototypical and not safe for production use.
+Disclaimer: This implementation is prototypical and not yet safe for production use.
 
 ## Background
 Jackpot is a non-interactive lottery scheme for which winning tickets can be publicly aggregated into a single short winning ticket.
@@ -25,16 +25,16 @@ This is optional and may be done in the background by calling `Jack::fk_preproce
 We use Jack as an example, but any type implementing the trait `LotteryScheme` would work similarly.
 The following code shows how to generate parameters and keys:
 ```rust
-
+    // we will need some randomness
     let mut rng = ark_std::rand::thread_rng();
     // for Jack, the number of lotteries
     // should always be 2^d - 2 for some d
     let num_lotteries = (1 << 4) - 2;
-    // winning with probability 1/k
+    // winning probability is p = 1/k
     let k = 512;
     // generate system parameters
     let par = <Jack as LotteryScheme>::setup(&mut rng, num_lotteries, k);
-    // generate a few users with their keys
+    // generate a few users with keys and identifiers
     let mut pks = Vec::new();
     let mut sks = Vec::new();
     let mut pids = Vec::new();
@@ -44,14 +44,14 @@ The following code shows how to generate parameters and keys:
         sks.push(sk);
         pids.push(j as u32);
     }
-    // optionally, we can precompute openings
+    // optionally, we can precompute tickets.
     // this may take a while, depending on the
     // number of lotteries
     Jack::fk_preprocess(&par, &mut sks[0]);
 ```
 The following code shows how to do a lottery:
 ```rust
-    // do a lottery
+    // let's do a lottery
     // say we do the first lottery (i = 0);
     // in practice, we should sample lseed using a
     // distributed randomness beacon
@@ -61,22 +61,22 @@ The following code shows how to do a lottery:
         // check for each user if it won
         // and if so, generate its ticket
         if <Jack as LotteryScheme>::participate(&par, i, &lseed, pids[j], &sks[j], &pks[j]) {
-            // player won
+            // participate returned that the player won
             let ticket =
                <Jack as LotteryScheme>::get_ticket(&par, i, &lseed, pids[j], &sks[j], &pks[j])
                     .unwrap();
-            // now we could safe the ticket for aggregating it later
+            // we could safe the ticket for aggregating it later
             // or send it to someone to prove that we won
         }
     }
 ```
 We can easily aggregate tickets as follows:
 ```rust
-    let i, lseed = // ... as above, lottery number and seed
-    let pks = // ... the keys of the winning players
-    let pids = // ... their ids
-    let tickets = // ... their tickets
-    // aggregate
+    let i, lseed = ... // ... as above, lottery number and seed
+    let pks = ... // ... the keys of the winning players
+    let pids = ... // ... their ids
+    let tickets = ... // ... their tickets
+    // aggregate the tickets into a single ticket
     let ticket = <Jack as LotteryScheme>::aggregate(&par, i, &lseed, &pids, &pks, &tickets);
 ```
 Now, we can verify:

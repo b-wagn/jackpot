@@ -64,10 +64,10 @@ fn bench<'a, M: Measurement>(c: &mut BenchmarkGroup<'a, M>, log_num_tickets: usi
 /// benchmark aggregation of Jack
 pub fn aggregate_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("aggregate");
-    // bench(c, 0);
-    // bench(c, 4);
+    bench(&mut group, 0);
+    bench(&mut group, 4);
     bench(&mut group, 8);
-    // bench(c, 10);
-    // bench(c, 11);
+    bench(&mut group, 10);
+    bench(&mut group, 11);
     group.finish();
 }

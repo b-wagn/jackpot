@@ -1,9 +1,10 @@
 use ark_ec::pairing::Pairing;
-use ark_ec::AffineRepr;
 use ark_ec::CurveGroup;
+use ark_ec::VariableBaseMSM;
 use ark_poly::EvaluationDomain;
 use ark_std::UniformRand;
-use ark_std::Zero;
+use ark_std::{One, Zero};
+use std::iter::zip;
 use std::ops::Mul;
 
 /// this module contains all types associated with
@@ -39,7 +40,7 @@ use self::kzg_utils::witness_evals_outside;
 
 use super::VectorCommitmentScheme;
 
-/* Notes:
+/* Note:
     - message length + 2 should probably be power of two, to make use of roots of unity
 */
 
@@ -250,19 +251,31 @@ impl<E: Pairing, D: EvaluationDomain<E::ScalarField>> VectorCommitmentScheme<E::
         // compute aggregated opening
         // hat_y = sum_{j=1}^L hat_yj * chi^{j-1}
         // v = prod_{j=1}^L vj^{chi^{j-1}}
-        // using Horner's rule
-        // TODO: This could be faster with a MSM
-        let mut hat_y = openings[le - 1].hat_y;
-        let mut v = openings[le - 1].v.into_group();
-        if le >= 2 {
-            for j in (0..=le - 2).rev() {
-                hat_y *= chi;
-                v *= chi;
-                hat_y += openings[j].hat_y;
-                v += openings[j].v.into_group();
-            }
+        // we compute v using a MSM, and we compute mi
+        // naively, as we have the powers of chi anyway
+        let mut chi_powers = Vec::with_capacity(le);
+        chi_powers.push(E::ScalarField::one());
+        for j in 1..le {
+            chi_powers.push(chi_powers[j - 1] * chi);
         }
+        let vs: Vec<_> = openings.iter().map(|opening| opening.v).collect();
+        let v = <E::G1 as VariableBaseMSM>::msm(&vs, &chi_powers).unwrap();
         let v = v.into_affine();
+        let hat_y: <E as Pairing>::ScalarField = zip(openings, chi_powers)
+            .map(|(opening, c)| opening.hat_y * c)
+            .sum();
+
+        // let mut hat_y = openings[le - 1].hat_y;
+        // let mut v = openings[le - 1].v.into_group();
+        // if le >= 2 {
+        //     for j in (0..=le - 2).rev() {
+        //         hat_y *= chi;
+        //         v *= chi;
+        //         hat_y += openings[j].hat_y;
+        //         v += openings[j].v.into_group();
+        //     }
+        // }
+        // let v = v.into_affine();
         Some(Opening { hat_y, v })
     }
 
@@ -282,21 +295,19 @@ impl<E: Pairing, D: EvaluationDomain<E::ScalarField>> VectorCommitmentScheme<E::
         let chi = get_chi::<E>(i, mis, coms);
 
         // compute aggregated value and commitment
-        // mi = sum_{j=1}^L mij * chi^{j-1}
         // com = prod_{j=1}^L comj^{chi^{j-1}}
-        // using Horner's rule
-        // TODO: This could be faster with a MSM
-        let mut mi = mis[le - 1];
-        let mut com = coms[le - 1].com_kzg.into_group();
-        if le >= 2 {
-            let bound = ((le as isize) - 2) as usize;
-            for j in (0..=bound).rev() {
-                mi *= chi;
-                com *= chi;
-                mi += mis[j];
-                com += coms[j].com_kzg.into_group();
-            }
+        // mi = sum_{j=1}^L mij * chi^{j-1}
+        // we compute com using a MSM, and we compute mi
+        // naively, as we have the powers of chi anyway
+        let mut chi_powers = Vec::with_capacity(le);
+        chi_powers.push(E::ScalarField::one());
+        for j in 1..le {
+            chi_powers.push(chi_powers[j - 1] * chi);
         }
+        let com_kzgs: Vec<_> = coms.iter().map(|com| com.com_kzg).collect();
+        let com = <E::G1 as VariableBaseMSM>::msm(&com_kzgs, &chi_powers).unwrap();
+        let mi: <E as Pairing>::ScalarField = zip(mis, chi_powers).map(|(m, c)| *m * c).sum();
+
         // verify the aggregated commitment using standard KZG
         let com = com.into_affine();
         plain_kzg_verify_inside(ck, i as usize, &com, mi, opening)

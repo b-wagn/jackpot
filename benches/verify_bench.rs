@@ -129,18 +129,15 @@ fn bench_blshash<'a, M: Measurement>(c: &mut BenchmarkGroup<'a, M>, log_num_tick
 /// benchmark aggregation of Jack and BLS+Hash
 pub fn verify_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("verify");
-
-    // bench_jack(&mut group, 0);
-    // bench_jack(&mut group, 4);
+    bench_jack(&mut group, 0);
+    bench_jack(&mut group, 4);
     bench_jack(&mut group, 8);
     bench_jack(&mut group, 10);
-    // bench_jack(&mut group, 11);
-
-    // bench_blshash(&mut group, 0);
-    // bench_blshash(&mut group, 4);
-    // bench_blshash(&mut group, 8);
-    // bench_blshash(&mut group, 10);
-    // bench_blshash(&mut group, 11);
-
+    bench_jack(&mut group, 11);
+    bench_blshash(&mut group, 0);
+    bench_blshash(&mut group, 4);
+    bench_blshash(&mut group, 8);
+    bench_blshash(&mut group, 10);
+    bench_blshash(&mut group, 11);
     group.finish();
 }

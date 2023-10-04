@@ -5,14 +5,14 @@ use ark_bls12_381::g1::Config as G1Config;
 use ark_bls12_381::Bls12_381;
 use ark_ec::hashing::HashToCurve;
 use ark_ec::pairing::Pairing;
-use ark_ec::AffineRepr;
+use ark_ec::VariableBaseMSM;
 use ark_ec::{
     hashing::{curve_maps::wb::WBMap, map_to_curve_hasher::MapToCurveBasedHasher},
     CurveGroup,
 };
 use ark_ff::field_hashers::DefaultFieldHasher;
 use ark_serialize::CanonicalSerialize;
-use ark_std::{UniformRand, Zero};
+use ark_std::{One, UniformRand, Zero};
 use sha2::Digest;
 use sha2::Sha256;
 
@@ -116,20 +116,17 @@ fn bls_batch_ver(g2: &G2Affine, pks: &[G2Affine], sigs: &[G1Affine], mes: &[u8; 
     // e(aggsig, g2) = e(h, aggpk)
     // for aggsig = prod_i sig_i^{chi^{i-1}}
     // and aggpk  = prod_i  pk_i^{chi^{i-1}}
-    // where chi is random and we use Horner's rule
-    // TODO: This could be faster with a MSM
+    // where chi is random and we use MSMs
     let mut rng = ark_std::rand::thread_rng();
     let chi = F::rand(&mut rng);
-    let mut aggsig = sigs[le - 1].into_group();
-    let mut aggpk = pks[le - 1].into_group();
-    if le >= 2 {
-        for j in (0..=le - 2).rev() {
-            aggsig *= chi;
-            aggpk *= chi;
-            aggsig += sigs[j];
-            aggpk += pks[j];
-        }
+    let mut chi_powers = Vec::with_capacity(le);
+    chi_powers.push(F::one());
+    for j in 1..le {
+        chi_powers.push(chi_powers[j - 1] * chi);
     }
+    let aggsig = <G1 as VariableBaseMSM>::msm(&sigs, &chi_powers).unwrap();
+    let aggpk = <G2 as VariableBaseMSM>::msm(&pks, &chi_powers).unwrap();
+
     bls_ver(g2, &aggpk, &aggsig, mes)
 }
 
