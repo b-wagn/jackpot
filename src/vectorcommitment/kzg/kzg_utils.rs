@@ -1,14 +1,8 @@
-use ark_ec::pairing::Pairing;
-use ark_ec::AffineRepr;
-use ark_ec::CurveGroup;
-use ark_ec::VariableBaseMSM;
-use ark_ff::batch_inversion;
-use ark_ff::Field;
-use ark_poly::EvaluationDomain;
-use ark_poly::Polynomial;
+use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup, VariableBaseMSM};
+use ark_ff::{batch_inversion, Field};
+use ark_poly::{EvaluationDomain, Polynomial};
 use ark_serialize::CanonicalSerialize;
-use ark_std::One;
-use ark_std::Zero;
+use ark_std::{One, Zero};
 use sha2::{Digest, Sha256};
 use std::ops::Mul;
 
@@ -99,8 +93,8 @@ pub fn plain_kzg_verify<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     //  let rhs = E::pairing(tau.v, rhs_right);
     //  lhs == rhs
     // We can do it slightly faster:
-    let left = vec![E::G1Prepared::from(-lhs_left),E::G1Prepared::from(tau.v)];
-    let right = vec![E::G2Prepared::from(ck.g2),E::G2Prepared::from(rhs_right)];
+    let left = vec![E::G1Prepared::from(-lhs_left), E::G1Prepared::from(tau.v)];
+    let right = vec![E::G2Prepared::from(ck.g2), E::G2Prepared::from(rhs_right)];
     let q = E::multi_pairing(left, right);
     q.is_zero()
 }
@@ -124,8 +118,8 @@ pub fn plain_kzg_verify_inside<E: Pairing, D: EvaluationDomain<E::ScalarField>>(
     //  let rhs = E::pairing(tau.v, ck.d[i]);
     //  lhs == rhs
     // We can do it slightly faster:
-    let left = vec![E::G1Prepared::from(-lhs_left),E::G1Prepared::from(tau.v)];
-    let right = vec![E::G2Prepared::from(ck.g2),E::G2Prepared::from(ck.d[i])];
+    let left = vec![E::G1Prepared::from(-lhs_left), E::G1Prepared::from(tau.v)];
+    let right = vec![E::G2Prepared::from(ck.g2), E::G2Prepared::from(ck.d[i])];
     let q = E::multi_pairing(left, right);
     q.is_zero()
 }

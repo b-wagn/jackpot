@@ -5,6 +5,7 @@ use jackpot::lotteryscheme::{
     LotteryScheme,
 };
 
+
 /// benchmark keygen of jack for 2^{ld}-2 lotteries
 fn bench<'a, M: Measurement>(c: &mut BenchmarkGroup<'a, M>, ld: usize) {
     let mut rng = ark_std::rand::thread_rng();

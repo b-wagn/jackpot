@@ -1,6 +1,5 @@
-use std::vec;
-
 use ark_std::rand::Rng;
+use std::vec;
 
 /// This module contains the folklore BLS+Hash
 /// lottery scheme. That is, one wins if H(sig) < T
@@ -13,7 +12,7 @@ pub mod jack;
 /// based on a given vector commitment scheme
 pub mod vcbased;
 
-/// A trait that models a lottery scheme
+/// trait that models a lottery scheme
 pub trait LotteryScheme {
     type Parameters;
     type PublicKey;

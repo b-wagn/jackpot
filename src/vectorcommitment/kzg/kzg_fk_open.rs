@@ -1,6 +1,4 @@
-use ark_ec::pairing::Pairing;
-use ark_ec::AffineRepr;
-use ark_ec::CurveGroup;
+use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
 use ark_poly::EvaluationDomain;
 use ark_std::Zero;
 use std::ops::Mul;

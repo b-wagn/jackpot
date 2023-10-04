@@ -6,11 +6,11 @@ use std::marker::PhantomData;
 use super::LotteryScheme;
 use crate::vectorcommitment::VectorCommitmentScheme;
 
-/*
- * Implementation of a lottery scheme from
- * a vector commitment scheme
- */
-
+/// Implementation of a lottery scheme from
+/// any vector commitment (VC).
+/// Note: Paper showed that if the VC is
+/// simulation-extractable, than this
+/// gives us a secure lottery protocol
 pub struct VCLotteryScheme<F: Field, VC: VectorCommitmentScheme<F>> {
     _f: PhantomData<F>,
     _vc: PhantomData<VC>,
@@ -33,6 +33,8 @@ pub struct Ticket<F: Field, VC: VectorCommitmentScheme<F>> {
 }
 pub type LotterySeed = [u8; 32];
 
+/// outputs the challenge x = H(pk,pid,i,lseed)
+/// for a specific user and lottery round
 #[inline]
 fn get_challenge<F: Field, VC: VectorCommitmentScheme<F>>(
     log_k: u32,
@@ -70,8 +72,8 @@ fn get_challenge<F: Field, VC: VectorCommitmentScheme<F>>(
     F::from_random_bytes(&hashbytes).unwrap()
 }
 
-// returns a random vector of length n of F where the elements are
-// sampled from 0,..k-1
+/// returns a random vector of length n of F where
+/// the elements are sampled from 0,..k-1
 #[inline]
 fn get_random_field_vec<R: rand::Rng, F: Field>(rng: &mut R, k: u32, n: usize) -> Vec<F> {
     (0..n)
@@ -125,7 +127,11 @@ impl<F: Field, VC: VectorCommitmentScheme<F>> LotteryScheme for VCLotteryScheme<
         VC::verify_commitment(&par.ck, &pk.com)
     }
 
-    fn sample_seed<R: rand::Rng>(rng: &mut R, _par: &Self::Parameters, _i: u32) -> Self::LotterySeed {
+    fn sample_seed<R: rand::Rng>(
+        rng: &mut R,
+        _par: &Self::Parameters,
+        _i: u32,
+    ) -> Self::LotterySeed {
         let mut res = [0x00; 32];
         rng.fill_bytes(&mut res);
         res

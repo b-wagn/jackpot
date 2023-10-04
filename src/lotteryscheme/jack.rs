@@ -11,13 +11,14 @@ use crate::vectorcommitment::{
 use ark_bls12_381::Bls12_381;
 use ark_ec::pairing::Pairing;
 use ark_poly::Radix2EvaluationDomain;
-use ark_serialize::CanonicalSerialize;
-use ark_serialize::{CanonicalDeserialize, Write};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Write};
 
 type F = <Bls12_381 as Pairing>::ScalarField;
 type D = Radix2EvaluationDomain<F>;
 type VC = VcKZG<Bls12_381, D>;
 
+/// Jackpot aggregatable lottery scheme,
+/// instantiated with KZG over BLS12-381
 pub type Jack = VCLotteryScheme<F, VC>;
 
 /// function we use to generate system parameters for our benchmarks

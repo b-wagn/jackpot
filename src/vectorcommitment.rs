@@ -2,8 +2,12 @@ use ark_ff::Field;
 use ark_serialize::CanonicalSerialize;
 use ark_std::rand::Rng;
 
+/// module that contains a KZG-based
+/// simulation-extractable (aggregatable)
+/// vector commitment scheme
 pub mod kzg;
 
+/// trait representing vector commitment schemes
 pub trait VectorCommitmentScheme<F: Field> {
     type CommitmentKey;
     type Commitment: CanonicalSerialize;

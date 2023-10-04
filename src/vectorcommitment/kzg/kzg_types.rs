@@ -1,7 +1,6 @@
 use ark_ec::pairing::Pairing;
 use ark_poly::EvaluationDomain;
-use ark_serialize::CanonicalDeserialize;
-use ark_serialize::CanonicalSerialize;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use std::marker::PhantomData;
 
 // This module contains types for the Simulation Extractable KZG Vector commitment

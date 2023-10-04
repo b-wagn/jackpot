@@ -1,9 +1,6 @@
-use ark_ec::pairing::Pairing;
-use ark_ec::CurveGroup;
-use ark_ec::VariableBaseMSM;
+use ark_ec::{pairing::Pairing, CurveGroup, VariableBaseMSM};
 use ark_poly::EvaluationDomain;
-use ark_std::UniformRand;
-use ark_std::{One, Zero};
+use ark_std::{One, UniformRand, Zero};
 use std::iter::zip;
 use std::ops::Mul;
 
