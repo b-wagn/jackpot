@@ -13,13 +13,15 @@ Combined with a broadcast channel and a randomness beacon, it has been proven to
 ## Overview
 
 ### Lottery Scheme Trait
-A trait defining a lottery scheme is provided.
-The trait is `ni_agg_lottery::lotteryscheme::LotteryScheme`.
+In the module `lotteryscheme`, a trait `LotteryScheme` is provided.
+It defines the interface a lottery scheme should have.
 
 ### Implemented Lottery Schemes
-To evaluate Jackpot, we have implemented both Jackpot and the folklore lottery scheme using [arkworks](http://arkworks.rs/).
-We also implemented the [FK technique](https://eprint.iacr.org/2023/033.pdf) for precomputing all tickets.
+The modules `lotteryscheme::jack` and `lotteryscheme::bls_hash` contain implementors of the lottery trait, namely, the Jackpot lottery scheme and the folklore lottery scheme, respectively.
+To evaluate Jackpot, we have implemented both Jackpot and the folklore lottery scheme
+We also implemented the [FK technique](https://eprint.iacr.org/2023/033.pdf) for precomputing all tickets for Jackpot.
 This is optional and may be done in the background by calling `Jack::fk_preprocess`.
+Additionally, the module `lotteryscheme::vcbased` contains a generic implementation of lotteries from vector commitments. In fact, Jackpot is just a concrete instantiation of this generic construction using the KZG vector commitment scheme implemented in `vectorcommitment::kzg`.
 
 ### Example of Usage
 We use Jack as an example, but any type implementing the trait `LotteryScheme` would work similarly.
@@ -45,10 +47,17 @@ The following code shows how to generate parameters and keys:
         pids.push(j as u32);
     }
     // optionally, we can precompute tickets.
-    // this may take a while, depending on the
-    // number of lotteries
+    // it may take a while, depending on the
+    // number of lotteries. Also, this is a
+    // feature specific to Jack and is not
+    // part of the lottery trait
     Jack::fk_preprocess(&par, &mut sks[0]);
 ```
+On registration, public keys `pk` have to be verified as follows:
+```rust
+    let valid : bool = <Jack as LotteryScheme>::verify_key(&par, &pk);
+```
+If verification fails (`valid = 0`), the key must be rejected and never be used.
 The following code shows how to do a lottery:
 ```rust
     // let's do a lottery
@@ -81,7 +90,7 @@ We can easily aggregate tickets as follows:
 ```
 Now, we can verify:
 ```rust
-    let result = <Jack as LotteryScheme>::verify(&par, i, &lseed, &pids, &pks, &ticket);
+    let result : bool = <Jack as LotteryScheme>::verify(&par, i, &lseed, &pids, &pks, &ticket);
 ```
 
 ## Tests
