@@ -99,8 +99,5 @@ You can run all tests with `cargo test`.
 ## Benchmarks
 You can run the benchmarks with `cargo bench`.
 
-## Memory Table from the Paper
-We have generated the table comparing bandwidth/memory of Jack and the BLS+Hash scheme with the Python script `storage_table.py`.
-
 ## Licence
 MIT License.
