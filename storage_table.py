@@ -9,8 +9,8 @@ from tabulate import tabulate
 
 # we assume curve BLS12-381 is used
 # one group element has size 48 Bytes
-# same for field elements
-FE_SIZE = 48.0
+# field element / exponent has 32 Bytes
+FE_SIZE = 32.0
 GE_SIZE = 48.0
 
 
