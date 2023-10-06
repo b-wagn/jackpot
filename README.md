@@ -98,6 +98,9 @@ You can run all tests with `cargo test`.
 
 ## Benchmarks
 You can run the benchmarks with `cargo bench`.
+The benchmarks are written using [criterion](https://github.com/bheisler/criterion.rs).
+Be aware that running all benchmarks takes long due to the number of repetitions that criterion does.
+Especially, running the benchmark `preprocess/preprocess_jack_20` takes multiple hours (while the actual preprocessing code that is being benchmarked takes less than an hour).
 
 ## Licence
 MIT License.
