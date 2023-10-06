@@ -10,8 +10,8 @@ from tabulate import tabulate
 # we assume curve BLS12-381 is used
 # one group element has size 48 Bytes
 # same for field elements
-FE_SIZE = 48.0 * 8.0
-GE_SIZE = 48.0 * 8.0
+FE_SIZE = 48.0
+GE_SIZE = 48.0
 
 
 # the range of ticket numbers we compare
@@ -19,7 +19,7 @@ RANGE = [1,16,256,1024,2048]
 
 
 # we compare our lottery scheme to BLS+Hash
-# for both we define a function how much space is needed 
+# for both we define a function how much space is needed
 # to store/transmit a given number of winning tickets
 def storage_bls(num_tickets):
 	# a winning ticket is just a BLS signature
@@ -28,8 +28,8 @@ def storage_bls(num_tickets):
 
 def storage_ours(num_tickets):
 	# if we aggregate that many tickets,
-	# we get one ticket, which is just 
-	# a KZG opening proof, i.e., one 
+	# we get one ticket, which is just
+	# a KZG opening proof, i.e., one
 	# field element and one group element
 	return GE_SIZE+FE_SIZE
 
@@ -47,4 +47,3 @@ for nt in RANGE:
 	table.append(row)
 
 print(tabulate(table,headers='firstrow',tablefmt='fancy_grid'))
-

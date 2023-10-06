@@ -28,8 +28,8 @@ pub fn preprocess_bench(c: &mut Criterion) {
     let mut group = c.benchmark_group("preprocess");
     // otherwise the benchmark will take too long
     group.sample_size(10);
-    // bench(&mut group, 10);
-    // bench(&mut group, 15);
+    bench(&mut group, 10);
+    bench(&mut group, 15);
     bench(&mut group, 20);
     group.finish();
 }
