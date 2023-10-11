@@ -2,7 +2,7 @@
 
 Implementation of the Jackpot lottery scheme in Rust using [arkworks](http://arkworks.rs/).
 
-Disclaimer: This implementation is prototypical and not yet safe for production use.
+Disclaimer: This implementation is prototypical and has not received careful code review. It not safe for production use.
 
 ## Background
 Jackpot is a non-interactive lottery scheme for which winning tickets can be publicly aggregated into a single short winning ticket.
